@@ -4,6 +4,13 @@
 
 import Foundation
 
+public extension Work {
+    
+    func singleton(_ category: String) -> Work<T> {
+        SingletonCondition(category: category, owner: self).chainOrCancel { [weak self] in self }
+    }
+}
+
 fileprivate class Singleton {
     
     static var lock = NSLock()
@@ -13,7 +20,7 @@ fileprivate class Singleton {
 public class SingletonCondition<T>: VoidWork {
     
     private let category: String
-    private weak var owner: Work<T>?
+    private let owner: Work<T>
     
     init(category: String, owner: Work<T>) {
         self.category = category
@@ -23,34 +30,19 @@ public class SingletonCondition<T>: VoidWork {
     }
     
     public override func execute() {
-        guard let owner = owner else {
-            reject(RunError.cancelled)
-            return
-        }
-        
         let category = self.category + String(describing: T.self)
         
         Singleton.lock.locking {
             if let current = Singleton.works[category] as? Work<T> {
                 current.addCompletion { [weak self, weak current] in
                     if let current = current, let wSelf = self {
-                        wSelf.owner?.finish(current.result!)
-                        
-                        if let error = current.result?.error {
-                            wSelf.reject(error)
-                        } else {
-                            wSelf.resolve(())
-                        }
+                        wSelf.owner.finish(current.result!)
+                        wSelf.resolve(())
                     }
                 }
                 if current.isFinished {
                     owner.finish(current.result!)
-                    
-                    if let error = current.result?.error {
-                        reject(error)
-                    } else {
-                        resolve(())
-                    }
+                    resolve(())
                 }
             } else {
                 Singleton.works[category] = owner

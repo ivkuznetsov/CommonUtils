@@ -55,16 +55,14 @@ open class GroupWork<T>: Work<T> {
     }
     
     override open func cancel() {
-        internalQueue.cancelAllOperations()
         works.forEach { $0.cancel() }
-        super.cancel()
     }
     
     override open func execute() {
         works.forEach {
             let work = WrappingWork(work: $0)
-            finishingWork.addDependency(work)
             internalQueue.add(work)
+            finishingWork.addDependency(work)
         }
         internalQueue.add(finishingWork)
         internalQueue.isSuspended = false

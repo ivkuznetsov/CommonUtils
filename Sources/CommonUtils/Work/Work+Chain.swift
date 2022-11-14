@@ -8,7 +8,6 @@ import Foundation
 final class ChainedWork<T>: AsyncWork<T> {
     
     private let dependency: WorkBase
-    weak var resultWork: WorkBase?
     
     init(progress: ChainedProgress, work: WorkBase, block: @escaping ((AsyncWork<T>) -> ())) {
         dependency = work
@@ -49,9 +48,9 @@ extension Work {
         ChainedWork<R>(progress: ChainedProgress(subWeight: progress, dependency: self.progress), work: self) { chainedWork in
             switch self.result! {
             case .success(let value):
-                let resultWork: Work<R>
                 guard !chainedWork.isFinished else { return }
                 
+                let resultWork: Work<R>
                 do {
                     resultWork = try block(value)
                 } catch {
@@ -59,7 +58,6 @@ extension Work {
                     return
                 }
                 
-                (chainedWork as! ChainedWork<R>).resultWork = resultWork
                 resultWork.addCompletion { [weak resultWork] in
                     if let result = resultWork?.result {
                         chainedWork.finish(result)
@@ -177,12 +175,12 @@ extension Work {
         chain(progress: progress) { try block($0).removeType() }
     }
     
-    public func thenConvert<R>(_ block: @escaping (T) throws -> R) -> Work<R> {
+    public func convert<R>(_ block: @escaping (T) throws -> R) -> Work<R> {
         chain(progress: .skip) { .value(try block($0)) }
     }
     
     public func removeType() -> VoidWork {
-        thenConvert() { _ in }
+        convert() { _ in }
     }
     
     static public func value(_ value: T) -> Work<T> { Work(result: value) }
@@ -216,19 +214,19 @@ extension VoidWork {
 }
 
 public func with<T,V,R>(_ work1: Work<T>, _ work2: Work<V>, block: @escaping (T, V) throws -> R) -> Work<R> {
-    GroupVoidWork(works: [work1, work2]).thenConvert { _ -> R in
+    GroupVoidWork(works: [work1, work2]).convert { _ -> R in
         try block(work1.result!.value!, work2.result!.value!)
     }
 }
 
 public func with<T,V,U,R>(_ work1: Work<T>, _ work2: Work<V>, _ work3: Work<U>, block: @escaping (T, V, U) throws -> R) -> Work<R> {
-    GroupVoidWork(works: [work1, work2, work3]).thenConvert { _ -> R in
+    GroupVoidWork(works: [work1, work2, work3]).convert { _ -> R in
         try block(work1.result!.value!, work2.result!.value!, work3.result!.value!)
     }
 }
 
 public func with<T,V,U,R,S>(_ work1: Work<T>, _ work2: Work<V>, _ work3: Work<U>, _ work4: Work<S>, block: @escaping (T, V, U, S) throws -> R) -> Work<R> {
-    GroupVoidWork(works: [work1, work2, work3, work4]).thenConvert { _ -> R in
+    GroupVoidWork(works: [work1, work2, work3, work4]).convert { _ -> R in
         try block(work1.result!.value!, work2.result!.value!, work3.result!.value!, work4.result!.value!)
     }
 }

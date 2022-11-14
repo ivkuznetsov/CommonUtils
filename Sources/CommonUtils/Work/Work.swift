@@ -57,6 +57,7 @@ open class WorkBase: Operation {
     
     public enum State: Int {
         case initial
+        case pending
         case executing
         case finished
     }
@@ -65,10 +66,9 @@ open class WorkBase: Operation {
     fileprivate var state: State = .initial
     
     @RWAtomic public internal(set) var queue: WorkQueue?
-    @RWAtomic private var processingTimeout: DispatchWorkItem?
     @RWAtomic private var completionBlocks: [()->()] = []
     
-    public var isEnqueued: Bool { queue != nil }
+    public var isEnqueued: Bool { stateLock.locking { state != .initial } }
     public override var isExecuting: Bool { stateLock.locking { state == .executing } }
     public override var isFinished: Bool { stateLock.locking { state == .finished } }
     
@@ -79,41 +79,6 @@ open class WorkBase: Operation {
         completionBlock = { [weak self] in
             self?.completionBlocks.forEach({ $0() })
         }
-    }
-    
-    open override func addDependency(_ op: Operation) {
-        fatalError()
-    }
-    
-    func addDependency(_ work: WorkBase) {
-        super.addDependency(work)
-        WorkQueue.appQueue.add(work)
-    }
-    
-    override public func start() {
-        processingTimeout?.cancel()
-        processingTimeout = DispatchWorkItem(block: { [weak self] in
-            if let wSelf = self, !wSelf.isFinished {
-                print("The operation has not been finished in 5min after start: \(wSelf)")
-            }
-        })
-        DispatchQueue.global().asyncAfter(deadline: .now() + 60 * 5, execute: processingTimeout!)
-        
-        willChangeValue(forKey: Key.executing.rawValue)
-        stateLock.locking { state = .executing }
-        didChangeValue(forKey: Key.executing.rawValue)
-        
-        super.start()
-        
-        if isCancelled {
-            print("\(self) isCancelled before main(): finishing")
-            reject(RunError.cancelled)
-        }
-    }
-    
-    open override func cancel() {
-        super.cancel()
-        reject(RunError.cancelled)
     }
     
     open func execute() {
@@ -135,16 +100,25 @@ open class WorkBase: Operation {
     public func addCompletion(_ block: @escaping ()->()) {
         _completionBlocks.mutate { $0.append(block) }
     }
-}
-
-public protocol Replicatable: AnyObject {
-    func replicate() -> Self
+    
+    func addTo(_ queue: WorkQueue) -> Bool {
+        stateLock.locking {
+            if state == .initial {
+                self.queue = queue
+                state = .pending
+                return true
+            } else {
+                return false
+            }
+        }
+    }
 }
 
 open class Work<T>: WorkBase {
     public typealias ResultType = T
     
     @RWAtomic public private(set) var result: WorkResult<T>?
+    @RWAtomic private var processingTimeout: DispatchWorkItem?
     
     public override init(progress: WorkProgress = .init()) {
         super.init(progress: progress)
@@ -160,36 +134,59 @@ open class Work<T>: WorkBase {
         self.result = .failure(error)
     }
     
-    private var processingTimeout: DispatchWorkItem?
-    
     public func finish(_ result: WorkResult<T>) {
         willChangeValue(forKey: Key.executing.rawValue)
         willChangeValue(forKey: Key.finished.rawValue)
-        stateLock.locking {
-            if state == .finished { return }
+        
+        let shouldCancel: Bool = stateLock.locking {
+            let finalResult: WorkResult<T> = self.result ?? result
             
-            if result.error == nil {
+            if self.result == nil {
+                self.result = finalResult
+            }
+            
+            if state != .executing { return false }
+            
+            processingTimeout?.cancel()
+            
+            if finalResult.error == nil {
                 progress.update(1)
             }
-            self.result = result
             state = .finished
+            
+            return finalResult.error as? RunError == .cancelled
         }
         didChangeValue(forKey: Key.executing.rawValue)
         didChangeValue(forKey: Key.finished.rawValue)
+        
+        if shouldCancel {
+            super.cancel()
+        }
+    }
+    
+    public override func start() {
+        processingTimeout = DispatchWorkItem(block: { [weak self] in
+            if let wSelf = self, !wSelf.isFinished {
+                print("The operation has not been finished in 5min after start: \(wSelf)")
+            }
+        })
+        DispatchQueue.global().asyncAfter(deadline: .now() + 60 * 5, execute: processingTimeout!)
+        
+        super.start()
+    }
+    
+    open override func cancel() {
+        reject(RunError.cancelled)
     }
     
     override public func main() {
-        switch self.result {
-        case .success(let value):
-            finish(.success(value))
+        willChangeValue(forKey: Key.executing.rawValue)
+        stateLock.locking { state = .executing }
+        didChangeValue(forKey: Key.executing.rawValue)
+        
+        if let result = result {
+            finish(result)
             return
-        case .failure(let error):
-            if !isCancelled {
-                super.cancel()
-            }
-            finish(.failure(error))
-            return
-        default: break
         }
         
         do {

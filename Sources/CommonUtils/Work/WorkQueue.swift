@@ -17,10 +17,7 @@ public final class WorkQueue: OperationQueue {
     }
     
     public func add(_ work: WorkBase) {
-        work.addToQueueLock.locking {
-            if work.isEnqueued { return }
-            
-            work.queue = self
+        if work.addTo(self) {
             work.dependencies.forEach {
                 if let dependency = $0 as? WorkBase {
                     WorkQueue.appQueue.add(dependency)
