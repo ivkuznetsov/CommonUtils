@@ -42,7 +42,7 @@ public enum RunError: Error, Equatable {
     }
 }
 
-extension Operation: Cancellable {}
+extension WorkBase: Cancellable {}
 
 open class WorkBase: Operation {
     
