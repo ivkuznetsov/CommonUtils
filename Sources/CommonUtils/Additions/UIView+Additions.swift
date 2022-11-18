@@ -11,6 +11,7 @@ public extension UIView {
     enum AttachType {
         case constraints
         case layoutMargins
+        case safeArea
         case autoresizing
     }
     
@@ -24,13 +25,21 @@ public extension UIView {
             leadingAnchor.constraint(equalTo: view.leadingAnchor).isActive = true
             trailingAnchor.constraint(equalTo: view.trailingAnchor).isActive = true
             topAnchor.constraint(equalTo: view.topAnchor).isActive = true
-            bottomAnchor.constraint(equalTo: view.bottomAnchor).isActive = true
+            let constraint = bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            constraint.priority = UILayoutPriority(999)
+            constraint.isActive = true
         case .layoutMargins:
             view.translatesAutoresizingMaskIntoConstraints = false
             layoutMarginsGuide.leadingAnchor.constraint(equalTo: view.leadingAnchor).isActive = true
             layoutMarginsGuide.trailingAnchor.constraint(equalTo: view.trailingAnchor).isActive = true
             layoutMarginsGuide.topAnchor.constraint(equalTo: view.topAnchor).isActive = true
             layoutMarginsGuide.bottomAnchor.constraint(equalTo: view.bottomAnchor).isActive = true
+        case .safeArea:
+            view.translatesAutoresizingMaskIntoConstraints = false
+            safeAreaLayoutGuide.leftAnchor.constraint(equalTo: view.leftAnchor).isActive = true
+            safeAreaLayoutGuide.rightAnchor.constraint(equalTo: view.rightAnchor).isActive = true
+            safeAreaLayoutGuide.topAnchor.constraint(equalTo: view.topAnchor).isActive = true
+            safeAreaLayoutGuide.bottomAnchor.constraint(equalTo: view.bottomAnchor).isActive = true
         case .autoresizing:
             view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         }
