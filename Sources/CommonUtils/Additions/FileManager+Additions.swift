@@ -1,8 +1,5 @@
 //
-//  File.swift
-//  
-//
-//  Created by Ilya Kuznetsov on 17/11/2022.
+//  FileManager+Additions.swift
 //
 
 import Foundation

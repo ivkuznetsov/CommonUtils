@@ -34,7 +34,7 @@ public extension Observable {
     }
     
     static func observe(_ observer: AnyObject, closure: @escaping (AppNotification?)->()) {
-        NotificationManager.shared.add(observer: observer, closure: closure, names: [notificationName()])
+        NotificationManager.shared.add(observer, closure: closure, names: [notificationName()])
     }
     
     static func cancelObserving(_ observer: AnyObject) {

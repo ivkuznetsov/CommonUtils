@@ -20,11 +20,7 @@ public extension Encodable {
         try toData().toDict()
     }
     
-    func toData() throws -> Data {
-        try jsonEncode()
-    }
-    
-    func jsonEncode(using encoder: JSONEncoder = JSONEncoder()) throws -> Data {
+    func toData(_ encoder: JSONEncoder = JSONEncoder()) throws -> Data {
         encoder.dateEncodingStrategy = .iso8601
         return try encoder.encode(self)
     }
@@ -32,17 +28,13 @@ public extension Encodable {
 
 public extension Decodable {
     
-    static func decode(_ data: Data) throws -> Self? {
-        try jsonDecode(from: data)
+    static func decode(_ data: Data, decoder: JSONDecoder = JSONDecoder()) throws -> Self {
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(self, from: data)
     }
     
     static func decode(_ dict: [String : Any]) throws -> Self {
         let data = try Foundation.JSONSerialization.data(withJSONObject: dict, options: [])
-        return try jsonDecode(from: data)
-    }
-    
-    static func jsonDecode(using decoder: JSONDecoder = JSONDecoder(), from data: Data) throws -> Self {
-        decoder.dateDecodingStrategy = .iso8601
-        return try decoder.decode(self, from: data)
+        return try decode(data)
     }
 }
