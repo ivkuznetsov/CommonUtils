@@ -8,16 +8,16 @@ public typealias VoidWork = Work<Void>
 
 public typealias WorkResult<T> = Result<T, Error>
 
-extension WorkResult {
+public extension WorkResult {
     
-    public var error: Error? {
+    var error: Error? {
         switch self {
         case .success(_): return nil
         case .failure(let error): return error
         }
     }
     
-    public var value: Success? {
+    var value: Success? {
         switch self {
         case .success(let value): return value
         case .failure(_): return nil
@@ -46,13 +46,6 @@ extension WorkBase: Cancellable {}
 
 open class WorkBase: Operation {
     
-    enum Key: String {
-        case executing = "isExecuting"
-        case finished = "isFinished"
-    }
-    
-    let addToQueueLock = NSLock()
-    
     public let progress: WorkProgress
     
     public enum State: Int {
@@ -65,7 +58,7 @@ open class WorkBase: Operation {
     let stateLock = NSLock()
     fileprivate var state: State = .initial
     
-    @RWAtomic public internal(set) var queue: WorkQueue?
+    @RWAtomic public private(set) var queue: WorkQueue?
     @RWAtomic private var completionBlocks: [()->()] = []
     
     public var isEnqueued: Bool { stateLock.locking { state != .initial } }
@@ -91,12 +84,6 @@ open class WorkBase: Operation {
     
     open var error: Error? { fatalError("\(type(of: self)) must override `var error`.") }
     
-    @discardableResult
-    public func on(_ queue: WorkQueue) -> Self {
-        queue.add(self)
-        return self
-    }
-    
     public func addCompletion(_ block: @escaping ()->()) {
         _completionBlocks.mutate { $0.append(block) }
     }
@@ -115,7 +102,11 @@ open class WorkBase: Operation {
 }
 
 open class Work<T>: WorkBase {
-    public typealias ResultType = T
+    
+    private enum Key: String {
+        case executing = "isExecuting"
+        case finished = "isFinished"
+    }
     
     @RWAtomic public private(set) var result: WorkResult<T>?
     @RWAtomic private var processingTimeout: DispatchWorkItem?

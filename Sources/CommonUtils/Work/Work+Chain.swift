@@ -21,10 +21,16 @@ final class ChainedWork<T>: AsyncWork<T> {
     }
 }
 
-extension Work {
+public extension Work {
     
     @discardableResult
-    public func run(progress: ((Double)->())? = nil) -> Self {
+    func on(_ queue: WorkQueue) -> Self {
+        queue.add(self)
+        return self
+    }
+    
+    @discardableResult
+    func run(progress: ((Double)->())? = nil) -> Self {
         if let progress = progress {
             self.progress.add(progressBlock: {
                 progress($0.absoluteValue)
@@ -34,16 +40,16 @@ extension Work {
     }
     
     @discardableResult
-    public func run(progress: ((Double)->())? = nil, _ block: @escaping (WorkResult<T>) -> ()) -> Work<T> {
+    func run(progress: ((Double)->())? = nil, _ block: @escaping (WorkResult<T>) -> ()) -> Work<T> {
         alwaysOnMain(block).run(progress: progress)
     }
     
     @discardableResult
-    public func runWith(progress: ((Double)->())? = nil, _ block: @escaping (Error?)->()) -> Work<T> {
+    func runWith(progress: ((Double)->())? = nil, _ block: @escaping (Error?)->()) -> Work<T> {
         alwaysOnMainWith(block).run(progress: progress)
     }
     
-    public func chain<R>(progress: ChainedProgress.SubWeight = .weight(0.5), _ block: @escaping (T) throws -> Work<R>) -> Work<R> {
+    func chain<R>(progress: ChainedProgress.SubWeight = .weight(0.5), _ block: @escaping (T) throws -> Work<R>) -> Work<R> {
         
         ChainedWork<R>(progress: ChainedProgress(subWeight: progress, dependency: self.progress), work: self) { chainedWork in
             switch self.result! {
@@ -78,7 +84,7 @@ extension Work {
         }
     }
     
-    public func seize(_ block: @escaping (Error) throws -> Work<T>) -> Work<T> {
+    func seize(_ block: @escaping (Error) throws -> Work<T>) -> Work<T> {
         ChainedWork<T>(progress: ChainedProgress(subWeight: .skip, dependency: progress),
                          work: self) { chainedWork in
             
@@ -107,7 +113,7 @@ extension Work {
         }
     }
     
-    public func fail(_ block: @escaping (Error) -> ()) -> Self {
+    func fail(_ block: @escaping (Error) -> ()) -> Self {
         alwaysWith { error in
             if let error = error {
                 block(error)
@@ -115,28 +121,28 @@ extension Work {
         }
     }
     
-    public func success(_ block: @escaping (T) -> ()) -> VoidWork {
+    func success(_ block: @escaping (T) -> ()) -> Self {
         always {
             if let value = $0.value {
                 block(value)
             }
-        }.removeType()
+        }
     }
     
-    public func successOnMain(_ block: @escaping (T) -> ()) -> VoidWork {
+    func successOnMain(_ block: @escaping (T) -> ()) -> Self {
         success { result in
             DispatchQueue.main.async { block(result) }
         }
     }
     
-    public func always(_ block: @escaping (WorkResult<T>) -> ()) -> Self {
+    func always(_ block: @escaping (WorkResult<T>) -> ()) -> Self {
         addCompletion { [unowned self] in
             block(self.result!)
         }
         return self
     }
     
-    public func alwaysOnMain(_ block: @escaping (WorkResult<T>) -> ()) -> Self {
+    func alwaysOnMain(_ block: @escaping (WorkResult<T>) -> ()) -> Self {
         always { result in
             DispatchQueue.main.async {
                 block(result)
@@ -144,11 +150,11 @@ extension Work {
         }
     }
     
-    public func alwaysWith(_ block: @escaping (Error?) -> ()) -> Self {
+    func alwaysWith(_ block: @escaping (Error?) -> ()) -> Self {
         always { block($0.error) }
     }
     
-    public func alwaysOnMainWith(_ block: @escaping (Error?) -> ()) -> Self {
+    func alwaysOnMainWith(_ block: @escaping (Error?) -> ()) -> Self {
         alwaysWith { error in
             DispatchQueue.main.async {
                 block(error)
@@ -157,7 +163,7 @@ extension Work {
     }
     
     //Cancel after this function will not affect previous operation
-    public func withDetachedCancel() -> Work<T> {
+    func withDetachedCancel() -> Work<T> {
         AsyncWork { [weak self] work in
             if let wSelf = self {
                 if let result = wSelf.result {
@@ -171,23 +177,23 @@ extension Work {
         }
     }
     
-    public func then(progress: ChainedProgress.SubWeight = .weight(0.5), _ block: @escaping (T) throws -> VoidWork) -> VoidWork {
+    func then(progress: ChainedProgress.SubWeight = .weight(0.5), _ block: @escaping (T) throws -> VoidWork) -> VoidWork {
         chain(progress: progress) { try block($0).removeType() }
     }
     
-    public func convert<R>(_ block: @escaping (T) throws -> R) -> Work<R> {
+    func convert<R>(_ block: @escaping (T) throws -> R) -> Work<R> {
         chain(progress: .skip) { .value(try block($0)) }
     }
     
-    public func removeType() -> VoidWork {
+    func removeType() -> VoidWork {
         convert() { _ in }
     }
     
-    static public func value(_ value: T) -> Work<T> { Work(result: value) }
+    static func value(_ value: T) -> Work<T> { Work(result: value) }
     
-    static public func fail(_ error: Error) -> Work<T> { Work(error) }
+    static func fail(_ error: Error) -> Work<T> { Work(error) }
     
-    public func chainOrCancel<R>(progress: ChainedProgress.SubWeight = .weight(0.5), _ block: @escaping (T) throws -> Work<R>?) -> Work<R> {
+    func chainOrCancel<R>(progress: ChainedProgress.SubWeight = .weight(0.5), _ block: @escaping (T) throws -> Work<R>?) -> Work<R> {
         chain(progress: progress) {
             if let op = try block($0) {
                 return op
@@ -197,7 +203,7 @@ extension Work {
         }
     }
     
-    public func thenOrCancel(progress: ChainedProgress.SubWeight = .weight(0.5), _ block: @escaping (T) throws -> VoidWork?) -> VoidWork {
+    func thenOrCancel(progress: ChainedProgress.SubWeight = .weight(0.5), _ block: @escaping (T) throws -> VoidWork?) -> VoidWork {
         then(progress: progress) {
             if let op = try block($0) {
                 return op
@@ -208,9 +214,9 @@ extension Work {
     }
 }
 
-extension VoidWork {
+public extension VoidWork {
     
-    static public func success() -> VoidWork { .value(()) }
+    static func success() -> VoidWork { .value(()) }
 }
 
 public func with<T,V,R>(_ work1: Work<T>, _ work2: Work<V>, block: @escaping (T, V) throws -> R) -> Work<R> {

@@ -4,7 +4,7 @@
 
 import Foundation
 
-public final class WorkQueue: OperationQueue {
+public class WorkQueue: OperationQueue {
     
     public static let appQueue = WorkQueue(name: "main.workqueue")
     private let queue: DispatchQueue

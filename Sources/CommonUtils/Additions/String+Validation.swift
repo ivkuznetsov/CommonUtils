@@ -1,9 +1,5 @@
 //
 //  String+Validation.swift
-//  AppToolkit
-//
-//  Created by Ilya Kuznetsov on 12/20/19.
-//  Copyright © 2019 Ilya Kuznetsov. All rights reserved.
 //
 
 import Foundation
