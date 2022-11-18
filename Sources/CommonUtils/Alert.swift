@@ -10,13 +10,13 @@ public extension NSAlert: NSTextFieldDelegate {
     
     private static var textFieldBlock = "textFieldBlock"
     
-    static func showTextField(_ message: String,
-                              details: String? = nil,
-                              alertStyle: NSAlert.Style = .informational,
-                              cancelTitle: String = "Cancel",
-                              textDidUpdate: ((NSAlert, NSTextField)->())? = nil,
-                              buttons: [(title: String, action: ((NSTextField)->())?)],
-                              window: NSWindow? = nil) {
+    public static func showTextField(_ message: String,
+                                     details: String? = nil,
+                                     alertStyle: NSAlert.Style = .informational,
+                                     cancelTitle: String = "Cancel",
+                                     textDidUpdate: ((NSAlert, NSTextField)->())? = nil,
+                                     buttons: [(title: String, action: ((NSTextField)->())?)],
+                                     window: NSWindow? = nil) {
         
         let textField = NSTextField(frame: NSRect(origin: .zero, size: CGSize(width: 200, height: 24)))
         
@@ -37,7 +37,7 @@ public extension NSAlert: NSTextFieldDelegate {
             (title, { action?(textField) }) }, window: window)
     }
     
-    func controlTextDidChange(_ obj: Notification) {
+    public func controlTextDidChange(_ obj: Notification) {
         if let textField = obj.object as? NSTextField,
             accessoryView == textField,
            let didUpdate = objc_getAssociatedObject(self, &NSAlert.textFieldBlock) as? (NSAlert, NSTextField)->() {
@@ -46,17 +46,17 @@ public extension NSAlert: NSTextFieldDelegate {
         }
     }
     
-    static func show(_ error: Error, title: String) {
+    public static func show(_ error: Error, title: String) {
         show(title, details: error.localizedDescription, alertStyle: .critical)
     }
     
-    static func show(_ message: String,
-                     details: String? = nil,
-                     alertStyle: NSAlert.Style = .informational,
-                     canCancel: Bool = false,
-                     customize: ((NSAlert)->())? = nil,
-                     buttons: [(title: String, action: (()->())?)] = [("OK", nil)],
-                     window: NSWindow? = nil) {
+    public static func show(_ message: String,
+                            details: String? = nil,
+                            alertStyle: NSAlert.Style = .informational,
+                            canCancel: Bool = false,
+                            customize: ((NSAlert)->())? = nil,
+                            buttons: [(title: String, action: (()->())?)] = [("OK", nil)],
+                            window: NSWindow? = nil) {
         
         let alert = NSAlert()
         alert.alertStyle = alertStyle
@@ -99,20 +99,20 @@ public class Alert {
     }()
     
     @discardableResult
-    static func present(title: String? = defaultTitle,
-                        message: String?,
-                        cancel: String? = nil,
-                        other: [(String, (()->())?)] = [],
-                        on vc: UIViewController) -> UIAlertController {
+    public static func present(title: String? = defaultTitle,
+                               message: String?,
+                               cancel: String? = nil,
+                               other: [(String, (()->())?)] = [],
+                               on vc: UIViewController) -> UIAlertController {
         present(title: title, message: message, cancel: (cancel ?? "OK", nil), other: other, on: vc)
     }
     
     @discardableResult
-    static func present(title: String? = defaultTitle,
-                        message: String?,
-                        cancel: (String, (()->())?),
-                        other: [(String, (()->())?)],
-                        on vc: UIViewController) -> UIAlertController {
+    public static func present(title: String? = defaultTitle,
+                               message: String?,
+                               cancel: (String, (()->())?),
+                               other: [(String, (()->())?)],
+                               on vc: UIViewController) -> UIAlertController {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: cancel.0, style: .cancel) { (_) in
             cancel.1?()
@@ -130,12 +130,12 @@ public class Alert {
     private static var associatedActions: [UITextField : UIAlertAction] = [:]
     
     @discardableResult
-    static func present(title: String? = defaultTitle,
-                        message: String?,
-                        cancel: (String, (()->())?),
-                        other: [(String, (([UITextField])->())?)],
-                        fieldsSetup: [(UITextField)->()],
-                        on viewController: UIViewController) -> UIAlertController {
+    public static func present(title: String? = defaultTitle,
+                               message: String?,
+                               cancel: (String, (()->())?),
+                               other: [(String, (([UITextField])->())?)],
+                               fieldsSetup: [(UITextField)->()],
+                               on viewController: UIViewController) -> UIAlertController {
         
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         
