@@ -10,7 +10,7 @@ public extension FileManager {
         let dir = NSSearchPathForDirectoriesInDomains(searchPath, .userDomainMask, true)[0] + "/" + Bundle.main.bundleIdentifier!
         
         if !FileManager.default.fileExists(atPath: dir) {
-            try! FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: false, attributes: nil)
+            try! FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true, attributes: nil)
         }
         return dir
     }
