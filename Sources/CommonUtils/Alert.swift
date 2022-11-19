@@ -6,7 +6,7 @@
 
 import AppKit
 
-public extension NSAlert: NSTextFieldDelegate {
+extension NSAlert: NSTextFieldDelegate {
     
     private static var textFieldBlock = "textFieldBlock"
     

@@ -5,8 +5,12 @@
 #if os(iOS)
 import UIKit
 
+public typealias View = UIView
+
 #else
 import AppKit
+
+public typealias View = NSView
 
 #endif
 
