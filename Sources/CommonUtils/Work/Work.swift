@@ -25,7 +25,7 @@ public extension WorkResult {
     }
 }
 
-public enum RunError: Error, Equatable {
+public enum RunError: Error, Equatable, LocalizedError {
     case cancelled
     case notImplemented
     case timeout
@@ -39,6 +39,15 @@ public enum RunError: Error, Equatable {
         case .custom(let message): if case .custom(let message2) = rhs { return message == message2 }
         }
         return false
+    }
+    
+    public var errorDescription: String? {
+        switch self {
+        case .cancelled: "Cancelled"
+        case .notImplemented: "Not Implemented"
+        case .timeout: "Timeout"
+        case .custom(let string): string
+        }
     }
 }
 

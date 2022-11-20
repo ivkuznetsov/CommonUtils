@@ -47,7 +47,7 @@ public extension View {
         animation.fromValue = NSNumber(floatLiteral: -0.05)
         animation.toValue = NSNumber(floatLiteral: 0.05)
         animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
-        layer.add(animation, forKey: "shake")
+        viewLayer.add(animation, forKey: "shake")
     }
     
     func addFadeTransition(duration: Double) {
