@@ -38,6 +38,18 @@ public class RWAtomic<T> {
         mutation(&value)
         pthread_rwlock_unlock(&lock)
     }
+    
+    public func locking<T>(_ block: () throws -> T) rethrows -> T {
+        pthread_rwlock_rdlock(&lock)
+        defer { pthread_rwlock_unlock(&lock) }
+        return try block()
+    }
+    
+    public func locking(_ block: () -> ()) {
+        pthread_rwlock_rdlock(&lock)
+        block()
+        pthread_rwlock_unlock(&lock)
+    }
 }
 
 public extension NSLock {
