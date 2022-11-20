@@ -203,7 +203,7 @@ open class Work<T>: WorkBase {
     }
     
     override open func reject(_ error: Error) {
-        finish(.failure( error ))
+        finish(.failure(error))
     }
     
     public func resolve(_ value: T) {

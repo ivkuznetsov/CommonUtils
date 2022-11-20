@@ -64,22 +64,26 @@ public extension Work {
                     return
                 }
                 
+                let chained = chainedWork as! ChainedWork<R>
+                
                 resultWork.addCompletion { [weak resultWork] in
                     if let result = resultWork?.result {
-                        chainedWork.finish(result)
+                        chained.finish(result)
                     }
                 }
-                (chainedWork as! ChainedWork<R>).addCompletion { [weak resultWork] in
-                    resultWork?.cancel()
+                chained.addCompletion { [weak chained, weak resultWork] in
+                    if let result = chained?.result {
+                        resultWork?.finish(result)
+                    }
                 }
                 
                 if let result = resultWork.result {
-                    chainedWork.finish(result)
+                    chained.finish(result)
                 }
-                resultWork.progress.reset(root: chainedWork.progress)
+                resultWork.progress.reset(root: chained.progress)
                 resultWork.run()
             case .failure(let error):
-                chainedWork.reject( error )
+                chainedWork.reject(error)
             }
         }
     }

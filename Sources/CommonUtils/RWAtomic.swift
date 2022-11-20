@@ -40,13 +40,13 @@ public class RWAtomic<T> {
     }
     
     public func locking<R>(_ block: (T) throws -> R) rethrows -> R {
-        pthread_rwlock_rdlock(&lock)
+        pthread_rwlock_wrlock(&lock)
         defer { pthread_rwlock_unlock(&lock) }
         return try block(value)
     }
     
     public func locking(_ block: (T) -> ()) {
-        pthread_rwlock_rdlock(&lock)
+        pthread_rwlock_wrlock(&lock)
         block(value)
         pthread_rwlock_unlock(&lock)
     }
