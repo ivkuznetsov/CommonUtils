@@ -43,10 +43,10 @@ public enum RunError: Error, Equatable, LocalizedError {
     
     public var errorDescription: String? {
         switch self {
-        case .cancelled: "Cancelled"
-        case .notImplemented: "Not Implemented"
-        case .timeout: "Timeout"
-        case .custom(let string): string
+        case .cancelled: return "Cancelled"
+        case .notImplemented: return "Not Implemented"
+        case .timeout: return "Timeout"
+        case .custom(let string): return string
         }
     }
 }
