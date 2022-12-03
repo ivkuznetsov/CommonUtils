@@ -17,5 +17,7 @@ public extension FileManager {
     
     static var applicationSupportDirectory: String { dir(.applicationSupportDirectory) }
     
-    static func applicationCacheDirectory() -> String { dir(.cachesDirectory) }
+    static var applicationCacheDirectory: String { dir(.cachesDirectory) }
+    
+    static var applicationDocumentsDirectory: String { dir(.documentDirectory) }
 }
