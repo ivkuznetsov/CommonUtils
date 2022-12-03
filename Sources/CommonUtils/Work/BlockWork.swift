@@ -32,9 +32,9 @@ open class BlockWork<T>: Work<T> {
 
 open class AsyncWork<T>: Work<T> {
     
-    @RWAtomic private var block: ((AsyncWork<T>) -> ())?
+    @RWAtomic private var block: ((AsyncWork<T>) throws -> ())?
     
-    public init(block: @escaping ((AsyncWork<T>) -> ()), progress: WorkProgress = .init()) {
+    public init(block: @escaping ((AsyncWork<T>) throws -> ()), progress: WorkProgress = .init()) {
         self.block = block
         super.init(progress: progress)
         addCompletion { [weak self] in
@@ -44,7 +44,11 @@ open class AsyncWork<T>: Work<T> {
     
     override open func execute() {
         if let block = block {
-            block(self)
+            do {
+                try block(self)
+            } catch {
+                reject(error)
+            }
         } else {
             reject(RunError.cancelled)
         }
