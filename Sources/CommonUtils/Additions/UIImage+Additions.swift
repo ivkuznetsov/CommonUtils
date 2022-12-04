@@ -27,7 +27,7 @@ public extension UIImage {
             draw(in: CGRect(x: minSide / 2 - newSize.width / 2, y: minSide / 2 - newSize.height / 2, width: newSize.width, height: newSize.height))
             let image = UIGraphicsGetImageFromCurrentImageContext()
             UIGraphicsEndImageContext()
-            return image
+            return image!
         } else {
             return self
         }
