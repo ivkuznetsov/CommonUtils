@@ -1,20 +1,14 @@
 //
-//  UIView+Animations.swift
+//  View+Animations.swift
 //
 
 #if os(iOS)
 import UIKit
-
-public typealias View = UIView
-
 #else
 import AppKit
-
-public typealias View = NSView
-
 #endif
 
-public extension View {
+public extension PlatformView {
     
     #if os(iOS)
     
@@ -122,5 +116,39 @@ public extension View {
         transition.duration = 0.5
         transition.timingFunction = CAMediaTimingFunction(controlPoints: 0.4, 0, 0, 1)
         viewLayer.add(transition, forKey: "transition")
+    }
+}
+
+public extension CAMediaTimingFunction {
+    
+    static var customEaseOut: CAMediaTimingFunction { CAMediaTimingFunction(controlPoints: 0.4, 0, 0, 1) }
+}
+
+public extension CALayer {
+    
+    func transitionTo(y: CGFloat, completion: @escaping ()->()) {
+        var position = self.position
+        position.y = y
+        transitionTo(position: position, completion: completion)
+    }
+    
+    func transitionTo(position: CGPoint, completion: @escaping ()->()) {
+        CATransaction.begin()
+        
+        let animation = CABasicAnimation(keyPath: "position")
+        animation.duration = 0.3
+        animation.fillMode = .forwards
+        animation.isRemovedOnCompletion = false
+        animation.toValue = position
+        
+        animation.timingFunction = CAMediaTimingFunction.customEaseOut
+        
+        CATransaction.setCompletionBlock{ [weak self] in
+            self?.removeAnimation(forKey: "translate")
+            completion()
+        }
+            
+        add(animation, forKey: "translate")
+        CATransaction.commit()
     }
 }

@@ -1,12 +1,14 @@
 //
-//  UIView+Frame.swift
+//  View+Frame.swift
 //
 
 #if os(iOS)
-
 import UIKit
+#else
+import AppKit
+#endif
 
-@objc public extension UIView {
+@objc public extension PlatformView {
     
     var origin: CGPoint {
         get { frame.origin }
@@ -62,5 +64,3 @@ import UIKit
         }
     }
 }
-
-#endif

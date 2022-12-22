@@ -1,6 +1,5 @@
 //
 //  Work+Chain.swift
-//  Versions
 //
 
 import Foundation

@@ -1,8 +1,5 @@
 //
 //  DispatchQueue+Additions.swift
-//  
-//
-//  Created by Ilya Kuznetsov on 18/11/2022.
 //
 
 import Foundation
