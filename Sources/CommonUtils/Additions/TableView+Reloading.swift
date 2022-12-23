@@ -4,26 +4,18 @@
 
 #if os(iOS)
 import UIKit
-
-public typealias TableView = UITableView
-public typealias TableViewAnimation = UITableView.RowAnimation
-
 #else
 import AppKit
-
-public typealias TableView = NSTableView
-public typealias TableViewAnimation = NSTableView.AnimationOptions
-
 #endif
 
-public extension TableView {
+public extension PlatformTableView {
     
     func reload(oldData: [AnyHashable],
                 newData: [AnyHashable],
                 deferred: ()->(),
                 updateObjects: ()->(),
-                addAnimation: TableViewAnimation,
-                deleteAnimation: TableViewAnimation,
+                addAnimation: PlatformTableViewAnimation,
+                deleteAnimation: PlatformTableViewAnimation,
                 animated: Bool) {
         
         let diff = newData.diff(oldData: oldData)
