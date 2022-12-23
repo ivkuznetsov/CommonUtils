@@ -18,92 +18,59 @@ public typealias TableViewAnimation = NSTableView.AnimationOptions
 
 public extension TableView {
     
-    private func printDuplicates(_ array: [AnyHashable]) {
-        var allSet = Set<AnyHashable>()
+    func reload(oldData: [AnyHashable],
+                newData: [AnyHashable],
+                deferred: ()->(),
+                updateObjects: ()->(),
+                addAnimation: TableViewAnimation,
+                deleteAnimation: TableViewAnimation,
+                animated: Bool) {
         
-        for object in array {
-            if allSet.contains(object) {
-                print("found duplicated object %@", object.description)
-            } else {
-                allSet.insert(object)
-            }
-        }
-    }
-    
-    private func indexPath(row: Int) -> IndexPath {
-        #if os(iOS)
-        IndexPath(row: row, section: 0)
-        #else
-        IndexPath(item: row, section: 0)
-        #endif
-    }
-    
-    func reload(oldData: [AnyHashable], newData: [AnyHashable], deferred: (()->())?, updateObjects: (()->())?, addAnimation: TableViewAnimation, deleteAnimation: TableViewAnimation) {
+        let diff = newData.diff(oldData: oldData)
         
-        var toAdd: [IndexPath] = []
-        var toDelete: [IndexPath] = []
-        
-        let oldDataSet = Set(oldData)
-        let newDataSet = Set(newData)
-        
-        if oldDataSet.count != oldData.count {
-            printDuplicates(oldData)
-        }
-        if newDataSet.count != newData.count {
-            printDuplicates(newData)
-        }
-        
-        let currentSet = NSMutableOrderedSet(array: oldData)
-        for (index, object) in oldData.enumerated() {
-            if !newDataSet.contains(object) {
-                toDelete.append(indexPath(row: index))
-                currentSet.remove(object)
-            }
-        }
-        for (index, object) in newData.enumerated() {
-            if !oldDataSet.contains(object) {
-                toAdd.append(indexPath(row: index))
-                currentSet.insert(object, at: index)
-            }
-        }
-        
-        var itemsToMove: [(from: IndexPath, to: IndexPath)] = []
-        for (index, object) in newData.enumerated() {
-            let oldDataIndex = currentSet.index(of: object)
-            if index != oldDataIndex {
-                itemsToMove.append((from: indexPath(row: oldData.firstIndex(of: object)!), to: indexPath(row: index)))
-            }
-        }
-        
-        beginUpdates()
-        
-        updateObjects?()
-        
-        if !toDelete.isEmpty {
-            #if os(iOS)
-            deleteRows(at: toDelete, with: deleteAnimation)
-            #else
-            removeRows(at: IndexSet(toDelete.map { $0.item }), withAnimation: deleteAnimation)
-            #endif
-        }
-        if !toAdd.isEmpty {
-            #if os(iOS)
-            insertRows(at: toAdd, with: addAnimation)
-            #else
-            insertRows(at: IndexSet(toAdd.map { $0.item }), withAnimation: addAnimation)
-            #endif
-        }
-        if !itemsToMove.isEmpty {
-            for couple in itemsToMove {
+        func update() {
+            beginUpdates()
+            updateObjects()
+            
+            if diff.delete.count > 0 {
                 #if os(iOS)
-                moveRow(at: couple.from, to: couple.to)
+                deleteRows(at: toDelete, with: deleteAnimation)
                 #else
-                moveRow(at: couple.from.item, to: couple.to.item)
+                removeRows(at: IndexSet(diff.delete.map { $0.item }), withAnimation: deleteAnimation)
                 #endif
             }
+            if diff.add.count > 0 {
+                #if os(iOS)
+                insertRows(at: toAdd, with: addAnimation)
+                #else
+                insertRows(at: IndexSet(diff.add.map { $0.item }), withAnimation: addAnimation)
+                #endif
+            }
+            if diff.move.count > 0 {
+                diff.move.forEach { couple in
+                    #if os(iOS)
+                    moveRow(at: couple.from, to: couple.to)
+                    #else
+                    moveRow(at: couple.from.item, to: couple.to.item)
+                    #endif
+                }
+            }
+            
+            deferred()
+            endUpdates()
         }
-        deferred?()
         
-        endUpdates()
+        if animated && window != nil && oldData.count > 0 && newData.count > 0 {
+            update()
+        } else {
+            #if os(iOS)
+            UIView.performWithoutAnimation { update() }
+            #else
+            NSAnimationContext.runAnimationGroup {
+                $0.duration = 0
+                update()
+            }
+            #endif
+        }
     }
 }
