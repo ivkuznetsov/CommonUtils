@@ -8,7 +8,7 @@ import UIKit
 import AppKit
 #endif
 
-extension PlatformCollectionView {
+public extension PlatformCollectionView {
     
     func reload(animated: Bool,
                 expandBottom: Bool,
