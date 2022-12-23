@@ -21,12 +21,17 @@ extension PlatformCollectionView {
         
         func update() -> () {
             updateObjects()
+            #if os(iOS)
+            deleteItems(at: Array(diff.delete))
+            insertItems(at: Array(diff.add))
+            #else
             deleteItems(at: diff.delete)
             insertItems(at: diff.add)
+            #endif
             diff.move.forEach { moveItem(at: $0, to: $1) }
             
             #if os(iOS)
-            indexPathsForVisibleItems().forEach {
+            indexPathsForVisibleItems.forEach {
                 let cell = cellForItem(at: $0)
                 if diff.add.contains($0) {
                     cell?.superview?.sendSubviewToBack(cell)
@@ -44,7 +49,7 @@ extension PlatformCollectionView {
         let performChanges = {
             self.performBatchUpdates { update() } completion: { _ in
                 application?.value(forKey: "endIgnoringInteractionEvents")
-                completion?()
+                completion()
             }
         }
         
