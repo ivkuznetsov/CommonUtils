@@ -34,14 +34,14 @@ public extension TableView {
             
             if diff.delete.count > 0 {
                 #if os(iOS)
-                deleteRows(at: diff.delete, with: deleteAnimation)
+                deleteRows(at: Array(diff.delete), with: deleteAnimation)
                 #else
                 removeRows(at: IndexSet(diff.delete.map { $0.item }), withAnimation: deleteAnimation)
                 #endif
             }
             if diff.add.count > 0 {
                 #if os(iOS)
-                insertRows(at: diff.add, with: addAnimation)
+                insertRows(at: Array(diff.add), with: addAnimation)
                 #else
                 insertRows(at: IndexSet(diff.add.map { $0.item }), withAnimation: addAnimation)
                 #endif
