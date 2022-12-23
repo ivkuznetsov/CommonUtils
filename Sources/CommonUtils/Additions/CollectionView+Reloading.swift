@@ -47,8 +47,8 @@ extension PlatformCollectionView {
         let application = self.application
         application?.value(forKey: "beginIgnoringInteractionEvents")
         
-        let performChanges = {
-            self.performBatchUpdates { update() } completion: { _ in
+        func performChanges() {
+            performBatchUpdates { update() } completion: { _ in
                 application?.value(forKey: "endIgnoringInteractionEvents")
                 completion()
             }
@@ -57,7 +57,7 @@ extension PlatformCollectionView {
         if animated {
             performChanges()
         } else {
-            UIView.performWithoutAnimation(performChanges)
+            UIView.performWithoutAnimation { performChanges() }
         }
 
         if collectionViewLayout.collectionViewContentSize.height < bounds.size.height && newData.count > 0 {
