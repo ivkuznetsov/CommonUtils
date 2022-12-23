@@ -32,11 +32,12 @@ extension PlatformCollectionView {
             
             #if os(iOS)
             indexPathsForVisibleItems.forEach {
-                let cell = cellForItem(at: $0)
-                if diff.add.contains($0) {
-                    cell?.superview?.sendSubviewToBack(cell)
-                } else {
-                    cell?.superview?.bringSubviewToFront(cell)
+                if let cell = cellForItem(at: $0) {
+                    if diff.add.contains($0) {
+                        cell.superview?.sendSubviewToBack(cell)
+                    } else {
+                        cell.superview?.bringSubviewToFront(cell)
+                    }
                 }
             }
             #endif
