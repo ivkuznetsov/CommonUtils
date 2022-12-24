@@ -146,7 +146,7 @@ public extension PlatformCollectionView {
     var defaultWidth: CGFloat {
         var width = self.width
         if let layout = flowLayout {
-            width -= layout.sectionInset.left + layout.sectionInset.right + collection.safeAreaInsets.left + collection.safeAreaInsets.right
+            width -= layout.sectionInset.left + layout.sectionInset.right + safeAreaInsets.left + safeAreaInsets.right
         }
         return width
     }

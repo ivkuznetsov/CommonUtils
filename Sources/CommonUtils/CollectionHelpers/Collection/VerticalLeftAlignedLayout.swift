@@ -14,7 +14,8 @@ open class VerticalLeftAlignedLayout: BoundsResizableLayout {
         let inherited = super.layoutAttributesForElements(in: rect).map { $0.copy() as! PlatformLayoutAttribute }
         
         for attributes in inherited where attributes.representedElementCategory == .item {
-            if let indexPath = attributes.indexPath, let adjustedFrame = layoutAttributesForItem(at: indexPath)?.frame {
+            let indexPath: IndexPath? = attributes.indexPath
+            if let indexPath = indexPath, let adjustedFrame = layoutAttributesForItem(at: indexPath)?.frame {
                 attributes.frame = adjustedFrame
             }
         }
@@ -44,8 +45,9 @@ open class VerticalLeftAlignedLayout: BoundsResizableLayout {
     }
 
     private func isFrame(for firstItemAttributes: PlatformLayoutAttribute, inSameLineAsFrameFor secondItemAttributes: PlatformLayoutAttribute) -> Bool {
-        precondition(firstItemAttributes.indexPath?.section == secondItemAttributes.indexPath?.section)
-        guard let section = firstItemAttributes.indexPath?.section else { return false }
+        let indexPath: IndexPath? = firstItemAttributes.indexPath
+        
+        guard let section = indexPath?.section else { return false }
 
         if firstItemAttributes.size.height == 0 || secondItemAttributes.frame.size.height == 0 { return false }
         

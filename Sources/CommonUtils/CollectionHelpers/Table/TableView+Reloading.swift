@@ -59,7 +59,7 @@ public extension PlatformTableView {
             }
             registeredCells.insert(id)
         }
-        return dequeueReusableCell(withIdentifier: String(describing: createCell.type)) as! T
+        return dequeueReusableCell(withIdentifier: type.classNameWithoutModule()) as! T
         #else
         
         let itemId = NSUserInterfaceItemIdentifier(rawValue: id)
