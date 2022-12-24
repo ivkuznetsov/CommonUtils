@@ -31,29 +31,22 @@ public extension Array where Element == AnyHashable {
                                           move: [(from: IndexPath, to: IndexPath)]) {
         var toAdd = Set<IndexPath>()
         var toDelete = Set<IndexPath>()
-        var toMove: [(AnyHashable, IndexPath)] = []
-        
-        var currentData = oldData
+        var toMove: [(IndexPath, IndexPath)] = []
         
         difference(from: oldData).inferringMoves().forEach {
             switch $0 {
-            case let .insert(offset: index, element: element, associatedWith: oldIndex):
-                if oldIndex == nil {
-                    currentData.insert(element, at: index)
-                    toAdd.insert(IndexPath(item: index, section: 0))
+            case let .remove(offset: oldIndex, element: _, associatedWith: newIndex):
+                if let newIndex = newIndex {
+                    toMove.append((IndexPath(item: oldIndex, section: 0), IndexPath(item: newIndex, section: 0)))
                 } else {
-                    toMove.append((element, IndexPath(item: index, section: 0)))
+                    toDelete.insert(IndexPath(item: oldIndex, section: 0))
                 }
-            case let .remove(offset: index, element: _, associatedWith: oldIndex):
+            case let .insert(offset: index, element: _, associatedWith: oldIndex):
                 if oldIndex == nil {
-                    currentData.remove(at: index)
-                    toDelete.insert(IndexPath(item: index, section: 0))
+                    toAdd.insert(IndexPath(item: index, section: 0))
                 }
             }
         }
-        
-        return (toAdd,
-                toDelete,
-                toMove.map { (IndexPath(item: currentData.firstIndex(of: $0.0)!, section: 0), to: $0.1) })
+        return (toAdd, toDelete, toMove)
     }
 }
