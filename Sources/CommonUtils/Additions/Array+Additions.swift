@@ -7,6 +7,22 @@
 
 import Foundation
 
+public extension Array {
+    
+    subscript (safe index: Index) -> Element? {
+        if index > 0 && index < count {
+            return self[index]
+        }
+        return nil
+    }
+    
+    mutating func appendSafe(_ element: Element?) {
+        if let element = element {
+            append(element)
+        }
+    }
+}
+
 public extension Array where Element == AnyHashable {
     
     //generate diff for TableView and CollectionView
