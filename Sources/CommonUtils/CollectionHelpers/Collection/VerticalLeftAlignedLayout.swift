@@ -11,7 +11,8 @@ import AppKit
 open class VerticalLeftAlignedLayout: BoundsResizableLayout {
 
     override open func layoutAttributesForElements(in rect: PlatformRect) -> [PlatformLayoutAttribute] {
-        let inherited = super.layoutAttributesForElements(in: rect).map { $0.copy() as! PlatformLayoutAttribute }
+        let attrs: [PlatformLayoutAttribute]? = super.layoutAttributesForElements(in: rect)
+        let inherited = (attrs ?? []).map { $0.copy() as! PlatformLayoutAttribute }
         
         for attributes in inherited where attributes.representedElementCategory == .item {
             let indexPath: IndexPath? = attributes.indexPath
