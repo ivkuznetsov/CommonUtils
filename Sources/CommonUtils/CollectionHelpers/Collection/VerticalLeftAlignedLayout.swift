@@ -14,7 +14,13 @@ open class VerticalLeftAlignedLayout: BoundsResizableLayout {
         let attrs: [PlatformLayoutAttribute]? = super.layoutAttributesForElements(in: rect)
         let inherited = (attrs ?? []).map { $0.copy() as! PlatformLayoutAttribute }
         
-        for attributes in inherited where attributes.representedElementCategory == .item {
+        #if os(iOS)
+        let category = UICollectionView.ElementCategory.cell
+        #else
+        let category = NSCollectionElementCategory.item
+        #endif
+        
+        for attributes in inherited where attributes.representedElementCategory == category {
             let indexPath: IndexPath? = attributes.indexPath
             if let indexPath = indexPath, let adjustedFrame = layoutAttributesForItem(at: indexPath)?.frame {
                 attributes.frame = adjustedFrame
