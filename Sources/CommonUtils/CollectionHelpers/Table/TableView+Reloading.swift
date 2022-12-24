@@ -71,8 +71,7 @@ public extension PlatformTableView {
     
     func reload(oldData: [AnyHashable],
                 newData: [AnyHashable],
-                deferred: ()->(),
-                updateObjects: ()->(),
+                updateObjects: (_ deleted: Set<Int>)->(),
                 addAnimation: PlatformTableViewAnimation,
                 deleteAnimation: PlatformTableViewAnimation,
                 animated: Bool) {
@@ -81,7 +80,7 @@ public extension PlatformTableView {
         
         func update() {
             beginUpdates()
-            updateObjects()
+            updateObjects(Set(diff.delete.map { $0.item }))
             
             if diff.delete.count > 0 {
                 #if os(iOS)
@@ -107,7 +106,6 @@ public extension PlatformTableView {
                 }
             }
             
-            deferred()
             endUpdates()
         }
         

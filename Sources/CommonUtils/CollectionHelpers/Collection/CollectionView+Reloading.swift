@@ -14,13 +14,13 @@ public extension PlatformCollectionView {
                 expandBottom: Bool,
                 oldData: [AnyHashable],
                 newData: [AnyHashable],
-                updateObjects: ()->(),
+                updateObjects: (_ deleted: Set<Int>)->(),
                 completion: @escaping ()->()) {
         
         let diff = newData.diff(oldData: oldData)
         
         func update() -> () {
-            updateObjects()
+            updateObjects(Set(diff.delete.map { $0.item }))
             #if os(iOS)
             deleteItems(at: Array(diff.delete))
             insertItems(at: Array(diff.add))
