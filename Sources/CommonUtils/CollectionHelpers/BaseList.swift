@@ -52,6 +52,12 @@ open class BaseList<List: PlatformView, DelegateType, CellSize>: StaticSetupObje
     private var deferredObjects: [AnyHashable]?
     private var updateCompletion: (()->())?
     
+    public func moveObject(from: IndexPath, to: IndexPath) {
+        let object = objects[from.item]
+        objects.remove(at: from.item)
+        objects.insert(object, at: to.item)
+    }
+    
     open func set(_ objects: [AnyHashable], animated: Bool = false, completion: (()->())? = nil) {
         updateCompletion = { [weak self] in
             guard let wSelf = self else { return }
