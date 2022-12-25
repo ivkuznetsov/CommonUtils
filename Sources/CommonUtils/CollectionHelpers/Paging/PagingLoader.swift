@@ -145,7 +145,9 @@ open class PagingLoader: StaticSetupObject {
         load(offset: nil, showLoading: showLoading) { [weak self] objects, newOffset in
             guard let wSelf = self else { return }
             
-            if let currentFirst = wSelf.fetchedItems.first, objects.reversed().contains(currentFirst) {
+            if let currentFirst = wSelf.fetchedItems.first,
+                objects.reversed().contains(currentFirst),
+                wSelf.offset != nil {
                 wSelf.append(items: objects, fromBeginning: true)
             } else {
                 wSelf.offset = newOffset
