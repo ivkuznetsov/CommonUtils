@@ -10,6 +10,20 @@ import AppKit
 
 open class VerticalLeftAlignedLayout: BoundsResizableLayout {
 
+    public override init() {
+        super.init()
+        scrollDirection = .vertical
+        minimumLineSpacing = 0
+        minimumInteritemSpacing = 0
+    }
+    
+    required public init?(coder: NSCoder) {
+        super.init(coder: coder)
+        scrollDirection = .vertical
+        minimumLineSpacing = 0
+        minimumInteritemSpacing = 0
+    }
+    
     override open func layoutAttributesForElements(in rect: PlatformRect) -> [PlatformLayoutAttribute] {
         let attrs: [PlatformLayoutAttribute]? = super.layoutAttributesForElements(in: rect)
         let inherited = (attrs ?? []).map { $0.copy() as! PlatformLayoutAttribute }

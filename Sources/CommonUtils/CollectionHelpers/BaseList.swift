@@ -17,7 +17,7 @@ public enum SelectionResult {
     case select
 }
 
-open class BaseList<List: PlatformView, DelegateType, CellSize>: StaticSetupObject {
+open class BaseList<List: PlatformView, DelegateType, CellSize, ContainerCell>: StaticSetupObject {
     
     public let list: List
     
@@ -35,6 +35,8 @@ open class BaseList<List: PlatformView, DelegateType, CellSize>: StaticSetupObje
     
     private weak var weakDeleage: AnyObject?
     public var delegate: DelegateType? { weakDeleage as? DelegateType }
+    
+    public var setupViewContainer: ((ContainerCell)->())?
     
     public init(list: List, delegate: DelegateType) {
         self.list = list
