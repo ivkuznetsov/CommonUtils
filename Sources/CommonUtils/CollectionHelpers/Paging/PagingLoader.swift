@@ -91,7 +91,7 @@ open class PagingLoader: StaticSetupObject {
         }
     }
 
-    public required init(scrollView: NSScrollView,
+    public required init(scrollView: PlatformScrollView,
                          delegate: PagingLoaderDelegate,
                          setFooterVisible: @escaping (_ visible: Bool, _ footer: PlatformView)->()) {
         self.scrollView = scrollView
@@ -105,7 +105,7 @@ open class PagingLoader: StaticSetupObject {
         if delegate.hasRefreshControl() {
             let refreshControl = RefreshControl()
             refreshControl.addTarget(self, action: #selector(refreshAction), for: .valueChanged)
-            addRefreshControl(refreshControl)
+            scrollView.refreshControl = refreshControl
             self.refreshControl = refreshControl
         }
         scrollView.addObserver(self, forKeyPath: "contentOffset", options: .new, context: nil)
@@ -155,9 +155,6 @@ open class PagingLoader: StaticSetupObject {
             (wSelf.delegate as? PagingCachable)?.saveFirstPageInCache(objects: objects)
         }
     }
-    
-    
-    
     
     func loadMore() {
         #if os(iOS)
@@ -301,7 +298,7 @@ open class PagingLoader: StaticSetupObject {
 
     open private(set) var refreshControl: UIRefreshControl?
 
-    private var scrollOnRefreshing: ((UIRefreshControl)->())!
+    public var scrollOnRefreshing: ((UIRefreshControl)->())!
 
     private var performedLoading = false
     private var shouldEndRefreshing = false
@@ -313,7 +310,7 @@ open class PagingLoader: StaticSetupObject {
 
     open override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
         if delegate != nil && keyPath == "contentOffset" {
-            loadModeIfNeeded()
+            loadMoreIfNeeded()
         }
     }
 
