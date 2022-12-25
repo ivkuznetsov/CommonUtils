@@ -184,9 +184,7 @@ open class PagingLoader: StaticSetupObject {
             }
             footerLoadingView.state = .stop
         } else {
-            if fetchedItems.isEmpty {
-                footerLoadingView.state = .loading
-            }
+            footerLoadingView.state = .loading
         }
         #else
         footerLoadingView.state = .loading
@@ -213,8 +211,6 @@ open class PagingLoader: StaticSetupObject {
                     #endif
                 }
                 wSelf.footerLoadingView.state = ((error as? RunError) == .cancelled || (error as NSError).code == NSURLErrorCancelled) ? .stop : .failed
-                
-                
             } else {
                 success(objects ?? [], newOffset)
                 
