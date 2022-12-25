@@ -92,7 +92,7 @@ open class BaseList<List: PlatformView, DelegateType, CellSize, ContainerCell>: 
                 deferredReload = true
             }
             $0.forEach {
-                if let key = (objects[$0] as? CellSizeCachable)?.cacheKey {
+                if let key = (self.objects[$0] as? CellSizeCachable)?.cacheKey {
                     cachedSizes[key] = nil
                 }
             }
