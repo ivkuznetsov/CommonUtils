@@ -314,7 +314,7 @@ open class PagingLoader: StaticSetupObject {
         }
     }
 
-    func endDecelerating() {
+    public func endDecelerating() {
         performedLoading = false
         if shouldEndRefreshing && scrollView?.isDecelerating == false && scrollView?.isDragging == false {
             shouldEndRefreshing = false
