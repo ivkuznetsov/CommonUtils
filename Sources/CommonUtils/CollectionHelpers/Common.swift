@@ -8,6 +8,8 @@ import Foundation
 import UIKit
 
 public typealias PlatformView = UIView
+public typealias PlatformButton = UIButton
+
 public typealias PlatformTableView = UITableView
 public typealias PlatformTableCell = UITableViewCell
 public typealias PlatformTableViewAnimation = UITableView.RowAnimation
@@ -24,6 +26,8 @@ public typealias PlatformInvalidationContext = UICollectionViewLayoutInvalidatio
 import AppKit
 
 public typealias PlatformView = NSView
+public typealias PlatformButton = NSButton
+
 public typealias PlatformTableView = NSTableView
 public typealias PlatformTableCell = NSTableRowView
 public typealias PlatformTableViewAnimation = NSTableView.AnimationOptions
@@ -62,24 +66,5 @@ public extension PlatformCollectionView {
             self.fill = { fill?($0 as! T) }
         }
     }
-}
-
-public protocol CellSizeCachable {
-    var cacheKey: String { get }
-}
-
-public extension AnyHashable {
-    
-    var cachedHeightKey: NSValue {
-        if let object = self as? CellSizeCachable {
-            return NSNumber(integerLiteral: object.cacheKey.hash)
-        }
-        return NSValue(nonretainedObject: self)
-    }
-}
-
-public enum SelectionResult {
-    case deselect
-    case select
 }
 
