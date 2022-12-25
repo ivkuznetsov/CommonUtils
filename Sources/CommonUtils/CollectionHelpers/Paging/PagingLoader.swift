@@ -294,7 +294,7 @@ open class PagingLoader: StaticSetupObject {
     }
     
     #if os(iOS)
-    open var processPullToRefreshError: (PagingLoader, Error)->()
+    open var processPullToRefreshError: ((PagingLoader, Error)->())!
 
     open private(set) var refreshControl: UIRefreshControl?
 
