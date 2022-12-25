@@ -26,7 +26,7 @@ open class NoObjectsView: PlatformView {
         didSet { actionButton.isHidden = actionClosure == nil }
     }
     
-    @objc public func action(_ sender: NSButton) {
+    @objc public func action(_ sender: Any) {
         actionClosure?()
     }
     
