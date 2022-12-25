@@ -10,10 +10,17 @@ import AppKit
 
 open class NoObjectsView: PlatformView {
     
+    #if os(iOS)
+    @IBOutlet public var image: UIImageView!
+    @IBOutlet public var header: UILabel!
+    @IBOutlet public var details: UILabel!
+    #else
     @IBOutlet public var image: NSImageView!
     @IBOutlet public var header: NSTextField!
     @IBOutlet public var details: NSTextField!
-    @IBOutlet public var actionButton: NSButton!
+    #endif
+    
+    @IBOutlet public var actionButton: PlatformButton!
     
     public var actionClosure: (()->())? {
         didSet { actionButton.isHidden = actionClosure == nil }
