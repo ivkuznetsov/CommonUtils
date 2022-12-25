@@ -326,7 +326,7 @@ open class PagingLoader: StaticSetupObject {
         }
         if shouldBeginRefreshing {
             shouldBeginRefreshing = false
-            refresh(showLoading: true)
+            internalRefresh(showLoading: true)
         }
     }
 
