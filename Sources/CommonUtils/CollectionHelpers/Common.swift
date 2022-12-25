@@ -21,6 +21,7 @@ public typealias PlatformRect = CGRect
 public typealias PlatformLayoutDelegate = UICollectionViewDelegateFlowLayout
 public typealias PlatformInset = UIEdgeInsets
 public typealias PlatformInvalidationContext = UICollectionViewLayoutInvalidationContext
+public typealias PlatformScrollView = UIScrollView
 
 #else
 import AppKit
@@ -39,6 +40,7 @@ public typealias PlatformRect = NSRect
 public typealias PlatformLayoutDelegate = NSCollectionViewDelegateFlowLayout
 public typealias PlatformInset = NSEdgeInsets
 public typealias PlatformInvalidationContext = NSCollectionViewLayoutInvalidationContext
+public typealias PlatformScrollView = NSScrollView
 
 #endif
 
