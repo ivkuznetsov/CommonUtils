@@ -118,14 +118,14 @@ open class PagingLoader: StaticSetupObject {
         #endif
     }
     
-    func set(fetchedItems: [AnyHashable], offset: Any?) {
+    open func set(fetchedItems: [AnyHashable], offset: Any?) {
         self.fetchedItems = fetchedItems
         self.offset = offset
-        setFooterVisible(offset == nil ? false : true, footerLoadingView)
+        footerVisible = offset != nil
     }
     
     // manually reload starts from the first page, usualy you should run this method in viewDidLoad or viewWillAppear
-    func refresh(showLoading: Bool) {
+    open func refresh(showLoading: Bool) {
         #if os(iOS)
         if let refreshControl = refreshControl, showLoading {
             DispatchQueue.main.async { [weak self] in
@@ -156,7 +156,7 @@ open class PagingLoader: StaticSetupObject {
         }
     }
     
-    func loadMore() {
+    open func loadMore() {
         #if os(iOS)
         performedLoading = true
         #endif
