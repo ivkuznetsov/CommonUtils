@@ -42,7 +42,7 @@ open class BaseList<List: PlatformView, DelegateType, CellSize>: StaticSetupObje
         super.init()
     }
     
-    public convenience init(view: NSView, delegate: DelegateType) {
+    public convenience init(view: PlatformView, delegate: DelegateType) {
         self.init(list: Self.createList(in: view), delegate: delegate)
     }
     
@@ -124,7 +124,7 @@ open class BaseList<List: PlatformView, DelegateType, CellSize>: StaticSetupObje
         super.responds(to: aSelector) ? self : delegate
     }
     
-    open class func createList(in view: NSView) -> List { fatalError("override in subclass") }
+    open class func createList(in view: PlatformView) -> List { fatalError("override in subclass") }
     
     open func reloadVisibleCells(excepting: Set<Int> = Set()) { fatalError("override in subclass") }
     
