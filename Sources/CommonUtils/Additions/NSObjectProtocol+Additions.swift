@@ -6,11 +6,28 @@
 //
 
 import Foundation
+import Combine
 
-public extension NSObjectProtocol {
+fileprivate var retainKey = "retainKey"
+
+fileprivate class RetainWrapper {
+    var objects: [Any] = []
+}
+
+public protocol Retainable {
     
-    func retained(by object: AnyObject) {
-        var key = UUID().uuidString
-        objc_setAssociatedObject(object, &key, self, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+    func retained(by object: AnyObject)
+}
+
+extension Retainable {
+    
+    public func retained(by object: AnyObject) {
+        let wrapper = objc_getAssociatedObject(object, &retainKey) as? RetainWrapper ?? RetainWrapper()
+        wrapper.objects.append(self)
+        objc_setAssociatedObject(object, &retainKey, wrapper, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
     }
 }
+
+extension NSObject: Retainable { }
+
+extension AnyCancellable: Retainable { }

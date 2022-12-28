@@ -40,12 +40,12 @@ public extension Work {
     
     @discardableResult
     func run(progress: ((Double)->())? = nil, _ block: @escaping (WorkResult<T>) -> ()) -> Work<T> {
-        alwaysOnMain(block).run(progress: progress)
+        completionOnMain(block).run(progress: progress)
     }
     
     @discardableResult
     func runWith(progress: ((Double)->())? = nil, _ block: @escaping (Error?)->()) -> Work<T> {
-        alwaysOnMainWith(block).run(progress: progress)
+        completionOnMainWith(block).run(progress: progress)
     }
     
     func chain<R>(progress: ChainedProgress.SubWeight = .weight(0.5), _ block: @escaping (T) throws -> Work<R>) -> Work<R> {
@@ -116,49 +116,56 @@ public extension Work {
         }
     }
     
+    @discardableResult
     func fail(_ block: @escaping (Error) -> ()) -> Self {
-        alwaysWith { error in
+        completionWith { error in
             if let error = error {
                 block(error)
             }
         }
     }
     
+    @discardableResult
     func success(_ block: @escaping (T) -> ()) -> Self {
-        always {
+        completion {
             if let value = $0.value {
                 block(value)
             }
         }
     }
     
+    @discardableResult
     func successOnMain(_ block: @escaping (T) -> ()) -> Self {
         success { result in
             DispatchQueue.main.async { block(result) }
         }
     }
     
-    func always(_ block: @escaping (WorkResult<T>) -> ()) -> Self {
+    @discardableResult
+    func completion(_ block: @escaping (WorkResult<T>) -> ()) -> Self {
         addCompletion { [unowned self] in
             block(self.result!)
         }
         return self
     }
     
-    func alwaysOnMain(_ block: @escaping (WorkResult<T>) -> ()) -> Self {
-        always { result in
+    @discardableResult
+    func completionOnMain(_ block: @escaping (WorkResult<T>) -> ()) -> Self {
+        completion { result in
             DispatchQueue.main.async {
                 block(result)
             }
         }
     }
     
-    func alwaysWith(_ block: @escaping (Error?) -> ()) -> Self {
-        always { block($0.error) }
+    @discardableResult
+    func completionWith(_ block: @escaping (Error?) -> ()) -> Self {
+        completion { block($0.error) }
     }
     
-    func alwaysOnMainWith(_ block: @escaping (Error?) -> ()) -> Self {
-        alwaysWith { error in
+    @discardableResult
+    func completionOnMainWith(_ block: @escaping (Error?) -> ()) -> Self {
+        completionWith { error in
             DispatchQueue.main.async {
                 block(error)
             }

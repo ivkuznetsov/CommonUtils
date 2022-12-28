@@ -3,18 +3,24 @@
 //
 
 import Foundation
+import Combine
 
-public class WorkProgress {
+public class WorkProgress: ObservableObject {
     
     @RWAtomic var weight: Double = 1
     @RWAtomic var start: Double = 0
     @RWAtomic private(set) var progressBlocks: [(WorkProgress)->()] = []
     
     @RWAtomic public private(set) var value: Double = 0
-    public var absoluteValue: Double { start + value * weight }
+    
+    @Published public var absoluteValue: Double = 0
     
     public init() {
         reset()
+        
+        add { [weak self] in
+            self?.absoluteValue = $0.start + $0.value * $0.weight
+        }
     }
     
     public func update(_ value: Double) {

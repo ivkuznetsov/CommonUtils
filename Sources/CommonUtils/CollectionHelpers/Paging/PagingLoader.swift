@@ -110,7 +110,7 @@ open class PagingLoader: StaticSetupObject {
         }
         scrollView.addObserver(self, forKeyPath: "contentOffset", options: .new, context: nil)
         #else
-        NotificationCenter.default.addObserver(forName: NSView.boundsDidChangeNotification, object: scrollView.contentView, queue: nil) { [weak self] _ in
+        NotificationCenter.default.publisher(for: NSView.boundsDidChangeNotification).sink { [weak self] _ in
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 self?.loadMoreIfNeeded()
             }
