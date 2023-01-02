@@ -15,12 +15,12 @@ extension Table: NSTableViewDataSource, NSTableViewDelegate {
         let item = items[row]
         
         if let view = item as? NSView {
-            let cell = list.createCell(for: ContainerTableCell.self, identifier: "\(view.hash)", source: .code)
+            let cell = view.createCell(for: ContainerTableCell.self, identifier: "\(view.hash)", source: .code)
             cell.attach(viewToAttach: view, type: .constraints)
             setupViewContainer?(cell)
             return cell
         } else if let createCell = cell(item)?.info {
-            let cell = list.createCell(for: createCell.type, source: .nib)
+            let cell = view.createCell(for: createCell.type, source: .nib)
             createCell.fill(item, cell)
             return cell
         }
@@ -39,7 +39,7 @@ extension Table: NSTableViewDataSource, NSTableViewDelegate {
     }
     
     public func tableViewSelectionDidChange(_ notification: Notification) {
-        let selected = list.selectedRowIndexes
+        let selected = view.selectedRowIndexes
         
         if selected.isEmpty {
             deselectedAll?()
@@ -47,7 +47,7 @@ extension Table: NSTableViewDataSource, NSTableViewDelegate {
             selected.forEach {
                 let item = items[$0]
                 if cell(item)?.info.action(item) == .deselect {
-                    list.deselectRow($0)
+                    view.deselectRow($0)
                 }
             }
         }
@@ -58,7 +58,7 @@ extension Table: NSMenuDelegate {
     
     public func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        if let item = items[safe: list.clickedRow] {
+        if let item = items[safe: view.clickedRow] {
             cell(item)?.menuItems(item).forEach { menu.addItem($0) }
         }
     }

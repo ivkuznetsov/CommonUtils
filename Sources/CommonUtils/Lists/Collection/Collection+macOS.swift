@@ -20,7 +20,7 @@ extension Collection: NSCollectionViewDataSource {
         let item = items[indexPath.item]
         
         if let view = item as? NSView {
-            let item = list.createCell(for: ContainerCollectionItem.self, source: .code, at: indexPath)
+            let item = view.createCell(for: ContainerCollectionItem.self, source: .code, at: indexPath)
             item.attach(view)
             setupViewContainer?(item)
             return item
@@ -28,7 +28,7 @@ extension Collection: NSCollectionViewDataSource {
         
         let createItem = cell(item)!.info
         
-        let cell = list.createCell(for: createItem.type, at: indexPath)
+        let cell = view.createCell(for: createItem.type, at: indexPath)
         _ = cell.view
         createItem.fill(item, cell)
         return cell
@@ -59,7 +59,7 @@ extension Collection: NSCollectionViewDelegateFlowLayout {
         
         if let view = item as? NSView {
             
-            let defaultWidth = list.defaultWidth
+            let defaultWidth = view.defaultWidth
             
             var resultSize: NSSize = .zero
             

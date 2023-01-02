@@ -44,13 +44,13 @@ public protocol ListView: PlatformView {
     var scrollView: PlatformScrollView { get }
 }
 
-open class BaseList<List: ListView>: NSObject {
+open class BaseList<View: ListView>: NSObject {
     
-    public let list: List
+    public let view: View
     
     public var showNoData: ([AnyHashable]) -> Bool = { $0.isEmpty }
     
-    public func set(cellsInfo: [List.Cell]) {
+    public func set(cellsInfo: [View.Cell]) {
         self.cells = cellsInfo.reduce(into: [:], { result, cell in
             result[String(describing: cell.itemType)] = cell
         })
@@ -70,17 +70,17 @@ open class BaseList<List: ListView>: NSObject {
     
     public let delegate = DelegateForwarder()
     
-    public var setupViewContainer: ((List.ContainerCell)->())?
+    public var setupViewContainer: ((View.ContainerCell)->())?
     
-    public required init(list: List? = nil, emptyStateView: PlatformView) {
-        self.list = list ?? Self.createDefaultList()
+    public required init(listView: View? = nil, emptyStateView: PlatformView) {
+        self.view = listView ?? Self.createDefaultView()
         self.emptyStateView = emptyStateView
         super.init()
     }
     
     private var deferredReload = false
     private var updatingData = false
-    var cells: [String:List.Cell] = [:]
+    var cells: [String:View.Cell] = [:]
     
     private var deferredItems: [AnyHashable]?
     private var updateCompletion: (()->())?
@@ -90,7 +90,7 @@ open class BaseList<List: ListView>: NSObject {
             guard let wSelf = self else { return }
             
             if wSelf.showNoData(wSelf.items) {
-                wSelf.list.attach(wSelf.emptyStateView, type: .safeArea)
+                wSelf.view.attach(wSelf.emptyStateView, type: .safeArea)
             } else {
                 wSelf.emptyStateView.removeFromSuperview()
             }
@@ -134,28 +134,28 @@ open class BaseList<List: ListView>: NSObject {
         }
     }
     
-    func cell(_ item: AnyHashable) -> List.Cell? { cells[String(describing: type(of: item.base))] }
+    func cell(_ item: AnyHashable) -> View.Cell? { cells[String(describing: type(of: item.base))] }
     
-    private var cachedSizes: [String:List.CellSize] = [:]
+    private var cachedSizes: [String:View.CellSize] = [:]
     
-    public func cachedSize(for item: AnyHashable) -> List.CellSize? {
+    public func cachedSize(for item: AnyHashable) -> View.CellSize? {
         if let key = (item as? CellSizeCachable)?.cacheKey {
             return cachedSizes[key]
         }
         return nil
     }
     
-    public func cache(size: List.CellSize?, for item: AnyHashable) {
+    public func cache(size: View.CellSize?, for item: AnyHashable) {
         if let key = (item as? CellSizeCachable)?.cacheKey {
             cachedSizes[key] = size
         }
     }
     
-    public func attachTo(_ view: PlatformView) {
-        view.attach(list.scrollView)
+    public func attachTo(_ containerView: PlatformView) {
+        containerView.attach(view.scrollView)
     }
     
-    open class func createDefaultList() -> List { fatalError("override in subclass") }
+    open class func createDefaultView() -> View { fatalError("override in subclass") }
     
     open func reloadVisibleCells(excepting: Set<Int> = Set()) { fatalError("override in subclass") }
     

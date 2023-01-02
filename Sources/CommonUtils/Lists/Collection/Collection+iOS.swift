@@ -16,7 +16,7 @@ extension Collection: UICollectionViewDataSource {
         let item = items[indexPath.item]
         
         if let view = item as? UIView {
-            let cell = list.createCell(for: ContainerCollectionItem.self, identifier: "\(view.hash)", source: .code, at: indexPath)
+            let cell = self.view.createCell(for: ContainerCollectionItem.self, identifier: "\(view.hash)", source: .code, at: indexPath)
             cell.attach(view)
             setupViewContainer?(cell)
             return cell
@@ -24,7 +24,7 @@ extension Collection: UICollectionViewDataSource {
             guard let createCell = self.cell(item)?.info else {
                 fatalError("Please specify cell for \(item)")
             }
-            let cell = list.createCell(for: createCell.type, identifier: createCell.identifier, source: createCell.source, at: indexPath)
+            let cell = view.createCell(for: createCell.type, identifier: createCell.identifier, source: createCell.source, at: indexPath)
             createCell.fill(item, cell)
             return cell
         }
@@ -54,7 +54,7 @@ extension Collection: UICollectionViewDelegateFlowLayout {
                 view.removeFromSuperview()
             }
             
-            let insets = list.flowLayout?.sectionInset
+            let insets = self.view.flowLayout?.sectionInset
             let defaultWidth = collectionView.frame.size.width - (insets?.left ?? 0) - (insets?.right ?? 0)
             
             let targetView = view.superview ?? view

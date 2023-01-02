@@ -113,7 +113,7 @@ open class Collection: BaseList<CollectionView> {
     public var expandsBottom: Bool = true
     
     public var staticCellSize: CGSize? {
-        didSet { list.flowLayout?.itemSize = staticCellSize ?? .zero }
+        didSet { view.flowLayout?.itemSize = staticCellSize ?? .zero }
     }
     
     #if os(macOS)
@@ -126,23 +126,23 @@ open class Collection: BaseList<CollectionView> {
     }
     #endif
     
-    public required init(list: CollectionView? = nil, emptyStateView: PlatformView) {
-        super.init(list: list, emptyStateView: emptyStateView)
+    public required init(listView: CollectionView? = nil, emptyStateView: PlatformView) {
+        super.init(listView: listView, emptyStateView: emptyStateView)
         delegate.add(self)
         delegate.addConforming([PlatformCollectionDelegate.self, PlatformCollectionDataSource.self])
-        self.list.delegate = delegate as? PlatformCollectionDelegate
-        self.list.dataSource = delegate as? PlatformCollectionDataSource
+        view.delegate = delegate as? PlatformCollectionDelegate
+        view.dataSource = delegate as? PlatformCollectionDataSource
         
         #if os(macOS)
-        self.list.isSelectable = true
+        view.isSelectable = true
         let recognizer = NSClickGestureRecognizer(target: self, action: #selector(doubleClickAction(_:)))
         recognizer.numberOfClicksRequired = 2
         recognizer.delaysPrimaryMouseButtonEvents = false
-        self.list.addGestureRecognizer(recognizer)
+        view.addGestureRecognizer(recognizer)
         #endif
     }
     
-    open override class func createDefaultList() -> CollectionView {
+    open override class func createDefaultView() -> CollectionView {
         #if os(iOS)
         let collection = CollectionView(frame: .zero, collectionViewLayout: VerticalLeftAlignedLayout())
         #else
@@ -162,12 +162,12 @@ open class Collection: BaseList<CollectionView> {
     
     open override func reloadVisibleCells(excepting: Set<Int> = Set()) {
         #if os(iOS)
-        let visibleCells = list.visibleCells
+        let visibleCells = view.visibleCells
         #else
-        let visibleCells = list.visibleItems()
+        let visibleCells = view.visibleItems()
         #endif
         visibleCells.forEach { cell in
-            if let indexPath = list.indexPath(for: cell), !excepting.contains(indexPath.item) {
+            if let indexPath = view.indexPath(for: cell), !excepting.contains(indexPath.item) {
                 let item = items[indexPath.item]
                 
                 if item as? PlatformView == nil {
@@ -178,7 +178,7 @@ open class Collection: BaseList<CollectionView> {
     }
     
     open override func update(_ items: [AnyHashable], animated: Bool, reloadCells: (Set<Int>) -> (), completion: @escaping () -> ()) {
-        list.reload(animated: animated,
+        view.reload(animated: animated,
                     expandBottom: expandsBottom,
                     oldData: self.items,
                     newData: items,

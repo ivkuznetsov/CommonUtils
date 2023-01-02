@@ -44,11 +44,8 @@ public class LoadingHelper: ObservableObject {
     private var keyedWorks: [String:WorkBase] = [:]
     @Published public private(set) var processing: [WorkBase:(progress: WorkProgress?, presentation: Presentation)] = [:]
     
-    // progress indicator becomes visible on first Progress block performing
-    // 'key' is needed to cancel previous launched operation with the same key
     public enum Options: Hashable {
         case showsProgress
-        case prohibitRetry
     }
     
     @discardableResult
@@ -72,12 +69,12 @@ public class LoadingHelper: ObservableObject {
                 wSelf.keyedWorks[key] = nil
             }
             if let error = error {
-                let retry = options.contains(.prohibitRetry) ? nil : { _ = self?.run(presentation,
-                                                                                     reuseKey: reuseKey,
-                                                                                     options: options,
-                                                                                     makeWork) }
-                
-                wSelf.failPublisher.send(Fail(error: error, retry: retry, presentation: presentation))
+                wSelf.failPublisher.send(Fail(error: error,
+                                              retry: { _ = self?.run(presentation,
+                                                                     reuseKey: reuseKey,
+                                                                     options: options,
+                                                                     makeWork) },
+                                              presentation: presentation))
             }
             wSelf.processing[work] = nil
         }

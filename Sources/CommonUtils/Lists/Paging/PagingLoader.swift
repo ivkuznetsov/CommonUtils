@@ -25,34 +25,34 @@ class RefreshControl: UIRefreshControl {
 }
 #endif
 
-public struct LoadedPage {
+public struct PagedContent {
     public let items: [AnyHashable]
-    public let offset: Any?
+    public let next: Any?
     
-    public init(_ items: [AnyHashable], offset: Any?) {
+    public init(_ items: [AnyHashable], next: Any?) {
         self.items = items
-        self.offset = offset
+        self.next = next
     }
 }
 
 open class PagingLoader<List: BaseList<L>, L: ListView>: NSObject, ObservableObject {
     
-    @Published public var page: LoadedPage?
+    @Published public var content: PagedContent?
     
     public let list: List
     
-    public var load: (_ offset: Any?, _ showLoading: Bool)->Work<LoadedPage> = { _, _ in
-        BlockWork { LoadedPage([], offset: nil) }
+    public var loadPage: (_ offset: Any?, _ showLoading: Bool, _ completion: @escaping (WorkResult<PagedContent>)->()) -> () = { _, _, completion in
+        completion(.success(PagedContent([], next: nil)))
     }
-    public var updateItems: (LoadedPage, FooterLoadingView?)->[AnyHashable] = { $0.items.appending($1) }
+    public var updateItems: (PagedContent, FooterLoadingView?)->[AnyHashable] = { $0.items.appending($1) }
     
     public var shouldLoadMore: ()->Bool = { true }
     public var footerLoadingInset = CGSize.zero
     public var performOnRefresh: (()->())? = nil
     public var firstPageCache: (save: ([AnyHashable])->(), load: ()->[AnyHashable])? = nil {
         didSet {
-            if page == nil, let items = firstPageCache?.load() {
-                page = LoadedPage(items, offset: nil)
+            if content == nil, let items = firstPageCache?.load() {
+                content = PagedContent(items, next: nil)
             }
         }
     }
@@ -76,9 +76,9 @@ open class PagingLoader<List: BaseList<L>, L: ListView>: NSObject, ObservableObj
         #if os(iOS)
         let refreshControl = hasRefreshControl ? RefreshControl() : nil
         refreshControl?.addTarget(self, action: #selector(refreshAction), for: .valueChanged)
-        list.list.scrollView.refreshControl = refreshControl
+        list.view.scrollView.refreshControl = refreshControl
         
-        list.list.scrollView.observe(\.contentOffset) { [weak self] _, _ in
+        list.view.scrollView.observe(\.contentOffset) { [weak self] _, _ in
             self?.loadMoreIfNeeded()
         }.retained(by: self)
         #else
@@ -89,9 +89,9 @@ open class PagingLoader<List: BaseList<L>, L: ListView>: NSObject, ObservableObj
         }.retained(by: self)
         #endif
         
-        $page.sink { [weak self] page in
-            if let wSelf = self, let page = page {
-                list.set(wSelf.updateItems(page, page.offset == nil ? nil : footer))
+        $content.sink { [weak self] content in
+            if let wSelf = self, let content = content {
+                list.set(wSelf.updateItems(content, content.next == nil ? nil : footer))
             }
         }.retained(by: self)
     }
@@ -99,7 +99,7 @@ open class PagingLoader<List: BaseList<L>, L: ListView>: NSObject, ObservableObj
     // manually reload starts from the first page, usualy you should run this method in viewDidLoad or viewWillAppear
     open func refresh(showLoading: Bool = false) {
         #if os(iOS)
-        if list.list.scrollView.refreshControl != nil, showLoading {
+        if list.view.scrollView.refreshControl != nil, showLoading {
             DispatchQueue.main.async { [weak self] in
                 self?.internalRefresh(showLoading: true)
             }
@@ -114,41 +114,41 @@ open class PagingLoader<List: BaseList<L>, L: ListView>: NSObject, ObservableObj
     
     private func internalRefresh(showLoading: Bool) {
         performOnRefresh?()
-        load(offset: nil, showLoading: showLoading).successOnMain { [weak self] page in
+        load(offset: nil, showLoading: showLoading, success: { [weak self] content in
             guard let wSelf = self else { return }
             
-            if let currentFirst = wSelf.page?.items.first,
-               page.items.reversed().contains(currentFirst),
-               wSelf.page?.offset != nil {
-                wSelf.append(page: page, appending: .toHead)
+            if let currentFirst = wSelf.content?.items.first,
+               content.items.reversed().contains(currentFirst),
+               wSelf.content?.next != nil {
+                wSelf.append(content, position: .toHead)
             } else {
-                wSelf.append(page: page, appending: .replace)
+                wSelf.append(content, position: .replace)
             }
-            wSelf.firstPageCache?.save(page.items)
-        }
+            wSelf.firstPageCache?.save(content.items)
+        })
     }
     
     open func loadMore() {
         #if os(iOS)
         performedLoading = true
         #endif
-        load(offset: page?.offset, showLoading: false).successOnMain { [weak self] page in
+        load(offset: content?.next, showLoading: false, success: { [weak self] content in
             #if os(iOS)
-            if page.items.count > 0 && page.offset != nil {
+            if content.items.count > 0 && content.next != nil {
                 self?.performedLoading = false
             }
             #endif
-            self?.append(page: page, appending: .toTail)
-        }
+            self?.append(content, position: .toTail)
+        })
     }
     
-    private weak var operation: WorkBase?
+    private var operationId: UUID?
     
-    private func load(offset: Any?, showLoading: Bool) -> Work<LoadedPage> {
+    private func load(offset: Any?, showLoading: Bool, success: @escaping (PagedContent)->()) {
         isLoading = true
         
         #if os(iOS)
-        if showLoading, let refreshControl = list.list.scrollView.refreshControl {
+        if showLoading, let refreshControl = list.view.scrollView.refreshControl {
             if !refreshControl.isRefreshing {
                 refreshControl.beginRefreshing()
                 scrollOnRefreshing()
@@ -161,17 +161,20 @@ open class PagingLoader<List: BaseList<L>, L: ListView>: NSObject, ObservableObj
         footer.state = .loading
         #endif
         
-        let operation = load(offset, showLoading)
-        operation.completionOnMain { [weak self] in
-            guard let wSelf = self, wSelf.operation == operation else { return }
+        let id = UUID()
+        operationId = id
+        
+        loadPage(offset, showLoading, { [weak self] in
+            guard let wSelf = self, wSelf.operationId == id else { return }
             
             wSelf.isLoading = false
             
             switch $0 {
-            case .success(let page):
+            case .success(let content):
                 wSelf.footer.state = .stop
+                success(content)
                 
-                if page.offset != nil {
+                if content.next != nil {
                     DispatchQueue.main.async {
                         self?.loadMoreIfNeeded()
                     }
@@ -192,45 +195,43 @@ open class PagingLoader<List: BaseList<L>, L: ListView>: NSObject, ObservableObj
             #if os(iOS)
             wSelf.endRefreshing()
             #endif
-        }
-        self.operation = operation
-        return operation
+        })
     }
     
-    public enum PageAppending {
+    public enum AppendingPosition {
         case toHead
         case toTail
         case replace
     }
     
-    open func append(page: LoadedPage, appending: PageAppending) {
-        if appending == .replace {
-            self.page = page
+    open func append(_ content: PagedContent, position: AppendingPosition) {
+        if position == .replace {
+            self.content = content
         } else {
-            var array = self.page?.items ?? []
+            var array = self.content?.items ?? []
             var set = Set(array)
             
-            let itemsToAdd = appending == .toHead ? page.items.reversed() : page.items
+            let itemsToAdd = position == .toHead ? content.items.reversed() : content.items
             
             itemsToAdd.forEach {
                 if !set.contains($0) {
                     set.insert($0)
                     
-                    if appending == .toHead {
+                    if position == .toHead {
                         array.insert($0, at: 0)
                     } else {
                         array.append($0)
                     }
                 }
             }
-            self.page = LoadedPage(array, offset: page.offset)
+            self.content = PagedContent(array, next: content.next)
         }
     }
     
     private func checkFooterVisibiliry() -> Bool {
-        if page?.offset != nil {
+        if content?.next != nil {
             let inset = footerLoadingInset
-            let scrollView = list.list.scrollView
+            let scrollView = list.view.scrollView
             
             let frame = scrollView.convert(footer.bounds, from: footer).insetBy(dx: -inset.width, dy: -inset.height)
             
@@ -257,7 +258,7 @@ open class PagingLoader<List: BaseList<L>, L: ListView>: NSObject, ObservableObj
         let allow = true
         #endif
         
-        if allow && footer.state == .stop && !isLoading && footerVisisble && page != nil {
+        if allow && footer.state == .stop && !isLoading && footerVisisble && content != nil {
             loadMore()
         }
     }
@@ -278,8 +279,8 @@ open class PagingLoader<List: BaseList<L>, L: ListView>: NSObject, ObservableObj
     }
 
     private func scrollOnRefreshing() {
-        if let refreshControl = list.list.scrollView.refreshControl {
-            list.list.scrollView.contentOffset = CGPoint(x: 0, y: -refreshControl.bounds.size.height)
+        if let refreshControl = list.view.scrollView.refreshControl {
+            list.view.scrollView.contentOffset = CGPoint(x: 0, y: -refreshControl.bounds.size.height)
         }
     }
     
@@ -301,12 +302,12 @@ open class PagingLoader<List: BaseList<L>, L: ListView>: NSObject, ObservableObj
     
     func endDecelerating() {
         performedLoading = false
-        let scrollView = list.list.scrollView
+        let scrollView = list.view.scrollView
         
         if shouldEndRefreshing && !scrollView.isDecelerating && !scrollView.isDragging {
             shouldEndRefreshing = false
             DispatchQueue.main.async { [weak self] in
-                self?.list.list.scrollView.refreshControl?.endRefreshing()
+                self?.list.view.scrollView.refreshControl?.endRefreshing()
             }
         }
         if shouldBeginRefreshing {
@@ -316,7 +317,7 @@ open class PagingLoader<List: BaseList<L>, L: ListView>: NSObject, ObservableObj
     }
 
     private func endRefreshing() {
-        let scrollView = list.list.scrollView
+        let scrollView = list.view.scrollView
         guard let refreshControl = scrollView.refreshControl else { return }
         
         if scrollView.isDecelerating || scrollView.isDragging {

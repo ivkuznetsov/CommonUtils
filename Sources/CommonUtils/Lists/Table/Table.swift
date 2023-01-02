@@ -118,9 +118,9 @@ open class Table: BaseList<PlatformTableView> {
     public var useAutomaticHeights = true {
         didSet {
             #if os(iOS)
-            list.estimatedRowHeight = useAutomaticHeights ? 150 : 0
+            view.estimatedRowHeight = useAutomaticHeights ? 150 : 0
             #else
-            list.usesAutomaticRowHeights = useAutomaticHeights
+            view.usesAutomaticRowHeights = useAutomaticHeights
             #endif
         }
     }
@@ -154,7 +154,7 @@ open class Table: BaseList<PlatformTableView> {
     
     public func scrollTo(item: AnyHashable, animated: Bool) {
         if let index = items.firstIndex(of: item) {
-            list.scrollToRow(at: IndexPath(row: index, section:0), at: .none, animated: animated)
+            view.scrollToRow(at: IndexPath(row: index, section:0), at: .none, animated: animated)
         }
     }
     #else
@@ -164,7 +164,7 @@ open class Table: BaseList<PlatformTableView> {
     public var deselectedAll: (()->())?
     
     @objc private func doubleClickAction(_ sender: Any) {
-        if let item = items[safe: list.clickedRow] {
+        if let item = items[safe: view.clickedRow] {
             cell(item)?.doubleClick(item)
         }
     }
@@ -172,41 +172,41 @@ open class Table: BaseList<PlatformTableView> {
     public var selectedItem: AnyHashable? {
         set {
             if let item = newValue, let index = items.firstIndex(of: item) {
-                FirstResponderPreserver.performWith(list.window) {
-                    list.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
+                FirstResponderPreserver.performWith(view.window) {
+                    view.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
                 }
             } else {
-                list.deselectAll(nil)
+                view.deselectAll(nil)
             }
         }
-        get { items[safe: list.selectedRow] }
+        get { items[safe: view.selectedRow] }
     }
     #endif
     
-    public required init(list: PlatformTableView? = nil, emptyStateView: PlatformView) {
-        super.init(list: list, emptyStateView: emptyStateView)
+    public required init(listView: PlatformTableView? = nil, emptyStateView: PlatformView) {
+        super.init(listView: listView, emptyStateView: emptyStateView)
         delegate.add(self)
         delegate.addConforming([PlatformTableDelegate.self, PlatformTableDataSource.self])
-        self.list.delegate = delegate as? PlatformTableDelegate
-        self.list.dataSource = delegate as? PlatformTableDataSource
+        view.delegate = delegate as? PlatformTableDelegate
+        view.dataSource = delegate as? PlatformTableDataSource
         
         #if os(iOS)
-        self.list.tableFooterView = UIView()
+        view.tableFooterView = UIView()
         #else
-        self.list.menu = NSMenu()
-        self.list.menu?.delegate = self
-        self.list.wantsLayer = true
-        self.list.target = self
-        self.list.doubleAction = #selector(doubleClickAction(_:))
-        self.list.usesAutomaticRowHeights = true
+        view.menu = NSMenu()
+        view.menu?.delegate = self
+        view.wantsLayer = true
+        view.target = self
+        view.doubleAction = #selector(doubleClickAction(_:))
+        view.usesAutomaticRowHeights = true
         
-        NotificationCenter.default.publisher(for: NSView.boundsDidChangeNotification, object: self.list.scrollView.contentView).sink { [weak self] _ in
+        NotificationCenter.default.publisher(for: NSView.boundsDidChangeNotification, object: view.scrollView.contentView).sink { [weak self] _ in
             self?.didScroll?()
         }.retained(by: self)
         #endif
     }
     
-    open override class func createDefaultList() -> PlatformTableView {
+    open override class func createDefaultView() -> PlatformTableView {
         #if os(iOS)
         let table = UITableView(frame: CGRect.zero, style: .plain)
         table.backgroundColor = .clear
@@ -244,16 +244,16 @@ open class Table: BaseList<PlatformTableView> {
         }
         
         #if os(iOS)
-        list.visibleCells.forEach {
-            if let indexPath = list.indexPath(for: $0), !excepting.contains(indexPath.item) {
+        view.visibleCells.forEach {
+            if let indexPath = view.indexPath(for: $0), !excepting.contains(indexPath.item) {
                 update(cell: $0, index: indexPath.row)
-                $0.separatorHidden = indexPath.row == items.count - 1 && list.tableFooterView != nil
+                $0.separatorHidden = indexPath.row == items.count - 1 && view.tableFooterView != nil
             }
         }
         #else
-        let rows = list.rows(in: list.visibleRect)
+        let rows = view.rows(in: view.visibleRect)
         for i in rows.location..<(rows.location + rows.length) {
-            if !excepting.contains(i), let view = list.rowView(atRow: i, makeIfNecessary: false) {
+            if !excepting.contains(i), let view = view.rowView(atRow: i, makeIfNecessary: false) {
                 update(cell: view, index: i)
             }
         }
@@ -265,10 +265,10 @@ open class Table: BaseList<PlatformTableView> {
         #if os(macOS)
         let preserver = FirstResponderPreserver(window: list.window)
         #else
-        list.prefetchDataSource = cells.values.contains(where: { $0.prefetch != nil }) ? self : nil
+        view.prefetchDataSource = cells.values.contains(where: { $0.prefetch != nil }) ? self : nil
         #endif
         
-        list.reload(oldData: self.items, newData: items, updateObjects: reloadCells, addAnimation: addAnimation, deleteAnimation: deleteAnimation, animated: animated)
+        view.reload(oldData: self.items, newData: items, updateObjects: reloadCells, addAnimation: addAnimation, deleteAnimation: deleteAnimation, animated: animated)
         
         #if os(macOS)
         didScroll?()

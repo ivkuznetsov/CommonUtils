@@ -19,7 +19,7 @@ extension Table: UITableViewDataSource {
         if let item = item as? UITableViewCell {
             cell = item
         } else if let item = item as? UIView {
-            let tableCell = list.createCell(for: ContainerTableCell.self, identifier: "\(item.hash)", source: .code)
+            let tableCell = view.createCell(for: ContainerTableCell.self, identifier: "\(item.hash)", source: .code)
             tableCell.attach(viewToAttach: item, type: .constraints)
             setupViewContainer?(tableCell)
             cell = tableCell
@@ -27,14 +27,14 @@ extension Table: UITableViewDataSource {
             guard let createCell = self.cell(item) else {
                 fatalError("Please specify cell for \(item)")
             }
-            cell = list.createCell(for: createCell.info.type,
+            cell = view.createCell(for: createCell.info.type,
                                    identifier: createCell.info.identifier,
                                    source: createCell.info.source)
             createCell.info.fill(item, cell)
         }
         cell.width = tableView.width
         cell.layoutIfNeeded()
-        cell.separatorHidden = (indexPath.row == items.count - 1) && list.tableFooterView != nil
+        cell.separatorHidden = (indexPath.row == items.count - 1) && view.tableFooterView != nil
         return cell
     }
     
