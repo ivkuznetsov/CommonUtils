@@ -12,16 +12,51 @@ public protocol CellSizeCachable {
     var cacheKey: String { get }
 }
 
+public enum CellSource {
+    case nib
+    case code
+}
+
 public enum SelectionResult {
     case deselect
     case select
 }
 
-open class BaseList<List: PlatformView, DelegateType, CellSize, ContainerCell>: StaticSetupObject {
+struct CellInfo<CellView, Size> {
+    let itemType: any Hashable.Type
+    let type: CellView.Type
+    let fill: (AnyHashable, CellView)->()
+    let identifier: String
+    let source: CellSource
+    let size: (AnyHashable)->Size
+    let action: (AnyHashable)->SelectionResult
+}
+
+public protocol ListCell {
+    var itemType: any Hashable.Type { get }
+}
+
+public protocol ListView: PlatformView {
+    associatedtype Cell: ListCell
+    associatedtype CellSize
+    associatedtype ContainerCell
+    
+    var scrollView: PlatformScrollView { get }
+}
+
+open class BaseList<List: ListView>: NSObject {
     
     public let list: List
     
-    public private(set) var objects: [AnyHashable] = []
+    public var showNoData: ([AnyHashable]) -> Bool = { $0.isEmpty }
+    
+    public func set(cellsInfo: [List.Cell]) {
+        self.cells = cellsInfo.reduce(into: [:], { result, cell in
+            result[String(describing: cell.itemType)] = cell
+        })
+    }
+    
+    public private(set) var items: [AnyHashable] = []
     
     public var visible: Bool = true {
         didSet {
@@ -31,43 +66,33 @@ open class BaseList<List: PlatformView, DelegateType, CellSize, ContainerCell>: 
         }
     }
     
-    open var noObjectsView: NoObjectsView!
+    public let emptyStateView: PlatformView
     
-    private weak var weakDeleage: AnyObject?
-    public var delegate: DelegateType? { weakDeleage as? DelegateType }
+    public let delegate = DelegateForwarder()
     
-    public var setupViewContainer: ((ContainerCell)->())?
+    public var setupViewContainer: ((List.ContainerCell)->())?
     
-    public init(list: List, delegate: DelegateType) {
-        self.list = list
-        weakDeleage = delegate as AnyObject
+    public required init(list: List? = nil, emptyStateView: PlatformView) {
+        self.list = list ?? Self.createDefaultList()
+        self.emptyStateView = emptyStateView
         super.init()
-    }
-    
-    public convenience init(view: PlatformView, delegate: DelegateType) {
-        self.init(list: Self.createList(in: view), delegate: delegate)
     }
     
     private var deferredReload = false
     private var updatingData = false
+    var cells: [String:List.Cell] = [:]
     
-    private var deferredObjects: [AnyHashable]?
+    private var deferredItems: [AnyHashable]?
     private var updateCompletion: (()->())?
     
-    public func moveObject(from: IndexPath, to: IndexPath) {
-        let object = objects[from.item]
-        objects.remove(at: from.item)
-        objects.insert(object, at: to.item)
-    }
-    
-    open func set(_ objects: [AnyHashable], animated: Bool = false, completion: (()->())? = nil) {
+    open func set(_ items: [AnyHashable], animated: Bool = false, completion: (()->())? = nil) {
         updateCompletion = { [weak self] in
             guard let wSelf = self else { return }
             
-            if wSelf.shouldShowNoData(wSelf.objects) {
-                wSelf.list.attach(wSelf.noObjectsView, type: .safeArea)
+            if wSelf.showNoData(wSelf.items) {
+                wSelf.list.attach(wSelf.emptyStateView, type: .safeArea)
             } else {
-                wSelf.noObjectsView.removeFromSuperview()
+                wSelf.emptyStateView.removeFromSuperview()
             }
             wSelf.updatingData = false
             wSelf.updateCompletion = nil
@@ -75,15 +100,15 @@ open class BaseList<List: PlatformView, DelegateType, CellSize, ContainerCell>: 
         }
     
         if updatingData {
-            deferredObjects = objects
+            deferredItems = items
         } else {
             updatingData = true
-            internalUpdateList(objects, animated: animated)
+            internalUpdate(items, animated: animated)
         }
     }
     
-    private func internalUpdateList(_ objects: [AnyHashable], animated: Bool) {
-        updateList(objects, animated: animated, updateObjects: {
+    private func internalUpdate(_ items: [AnyHashable], animated: Bool) {
+        update(items, animated: animated, reloadCells: {
             
             if visible {
                 deferredReload = false
@@ -92,54 +117,50 @@ open class BaseList<List: PlatformView, DelegateType, CellSize, ContainerCell>: 
                 deferredReload = true
             }
             $0.forEach {
-                if let key = (self.objects[$0] as? CellSizeCachable)?.cacheKey {
+                if let key = (self.items[$0] as? CellSizeCachable)?.cacheKey {
                     cachedSizes[key] = nil
                 }
             }
-            self.objects = objects
+            self.items = items
         }) { [weak self] in
             guard let wSelf = self else { return }
             
-            if let objects = wSelf.deferredObjects {
-                wSelf.deferredObjects = nil
-                wSelf.internalUpdateList(objects, animated: false)
+            if let items = wSelf.deferredItems {
+                wSelf.deferredItems = nil
+                wSelf.internalUpdate(items, animated: false)
             } else {
                 wSelf.updateCompletion?()
             }
         }
     }
     
-    private var cachedSizes: [String:CellSize] = [:]
+    func cell(_ item: AnyHashable) -> List.Cell? { cells[String(describing: type(of: item.base))] }
     
-    public func cachedSize(for object: AnyHashable) -> CellSize? {
-        if let key = (object as? CellSizeCachable)?.cacheKey {
+    private var cachedSizes: [String:List.CellSize] = [:]
+    
+    public func cachedSize(for item: AnyHashable) -> List.CellSize? {
+        if let key = (item as? CellSizeCachable)?.cacheKey {
             return cachedSizes[key]
         }
         return nil
     }
     
-    public func cache(size: CellSize?, for object: AnyHashable) {
-        if let key = (object as? CellSizeCachable)?.cacheKey {
+    public func cache(size: List.CellSize?, for item: AnyHashable) {
+        if let key = (item as? CellSizeCachable)?.cacheKey {
             cachedSizes[key] = size
         }
     }
     
-    open override func responds(to aSelector: Selector!) -> Bool {
-        super.responds(to: aSelector) ? true : ((delegate as? NSObject)?.responds(to: aSelector) ?? false)
+    public func attachTo(_ view: PlatformView) {
+        view.attach(list.scrollView)
     }
     
-    open override func forwardingTarget(for aSelector: Selector!) -> Any? {
-        super.responds(to: aSelector) ? self : delegate
-    }
-    
-    open class func createList(in view: PlatformView) -> List { fatalError("override in subclass") }
+    open class func createDefaultList() -> List { fatalError("override in subclass") }
     
     open func reloadVisibleCells(excepting: Set<Int> = Set()) { fatalError("override in subclass") }
     
-    open func updateList(_ objects: [AnyHashable],
-                         animated: Bool,
-                         updateObjects: (_ excepting: Set<Int>)->(),
-                         completion: @escaping ()->()) { fatalError("override in subclass") }
-    
-    open func shouldShowNoData(_ objects: [AnyHashable]) -> Bool { fatalError("override in subclass") }
+    open func update(_ item: [AnyHashable],
+                     animated: Bool,
+                     reloadCells: (_ excepting: Set<Int>)->(),
+                     completion: @escaping ()->()) { fatalError("override in subclass") }
 }

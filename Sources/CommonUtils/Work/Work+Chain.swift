@@ -195,6 +195,20 @@ public extension Work {
         chain(progress: .skip) { .value(try block($0)) }
     }
     
+    func convertOnMain<R>(_ block: @escaping (T) throws -> R) -> Work<R> {
+        chain(progress: .skip) { result in
+            AsyncWork { work in
+                DispatchQueue.main.async {
+                    do {
+                        work.resolve(try block(result))
+                    } catch {
+                        work.reject(error)
+                    }
+                }
+            }
+        }
+    }
+    
     func removeType() -> VoidWork {
         convert() { _ in }
     }

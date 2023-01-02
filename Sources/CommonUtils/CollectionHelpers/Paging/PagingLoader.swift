@@ -7,6 +7,7 @@ import UIKit
 #else
 import AppKit
 #endif
+import Combine
 
 #if os(iOS)
 class RefreshControl: UIRefreshControl {
@@ -24,91 +25,62 @@ class RefreshControl: UIRefreshControl {
 }
 #endif
 
-public protocol PagingLoaderDelegate: AnyObject {
+public struct LoadedPage {
+    public let items: [AnyHashable]
+    public let offset: Any?
     
-    func shouldLoadMore() -> Bool
-
-    func pagingLoader() -> PagingLoader.Type
-    
-    func reloadView(_ animated: Bool)
-    
-    func load(offset: Any?, showLoading: Bool, completion: @escaping ([AnyHashable]?, Error?, _ offset: Any?)->())
-    
-    func performOnRefresh()
-    
-    #if os(iOS)
-    func hasRefreshControl() -> Bool
-    #endif
+    public init(_ items: [AnyHashable], offset: Any?) {
+        self.items = items
+        self.offset = offset
+    }
 }
 
-public extension PagingLoaderDelegate {
+open class PagingLoader<List: BaseList<L>, L: ListView>: NSObject, ObservableObject {
     
-    func shouldLoadMore() -> Bool { true }
+    @Published public var page: LoadedPage?
     
-    func pagingLoader() -> PagingLoader.Type { PagingLoader.self }
+    public let list: List
     
-    func performOnRefresh() { }
+    public var load: (_ offset: Any?, _ showLoading: Bool)->Work<LoadedPage> = { _, _ in
+        BlockWork { LoadedPage([], offset: nil) }
+    }
+    public var updateItems: (LoadedPage, FooterLoadingView?)->[AnyHashable] = { $0.items.appending($1) }
     
-    #if os(iOS)
-    func hasRefreshControl() -> Bool { true }
-    #endif
-}
-
-public protocol PagingCachable: AnyObject {
- 
-    func saveFirstPageInCache(objects: [AnyHashable])
-    
-    func loadFirstPageFromCache() -> [AnyHashable]
-}
-
-open class PagingLoader: StaticSetupObject {
-    
+    public var shouldLoadMore: ()->Bool = { true }
     public var footerLoadingInset = CGSize.zero
-    
-    public var footerLoadingView: FooterLoadingView! {
+    public var performOnRefresh: (()->())? = nil
+    public var firstPageCache: (save: ([AnyHashable])->(), load: ()->[AnyHashable])? = nil {
         didSet {
-            footerLoadingView.retry = { [unowned self] in
-                self.loadMore()
+            if page == nil, let items = firstPageCache?.load() {
+                page = LoadedPage(items, offset: nil)
             }
         }
     }
     
-    public private(set) var isLoading = false
-    public private(set) weak var scrollView: PlatformScrollView?
-    public private(set) weak var delegate: PagingLoaderDelegate?
+    private let footer: FooterLoadingView
+    private var isLoading = false
     
-    public var fetchedItems: [AnyHashable] = []
-    public var offset: Any?
-    
-    private var currentOperationId: UUID?
-    
-    private var setFooterVisible: (Bool, FooterLoadingView)->()
-    public var footerVisible: Bool = false {
-        didSet {
-            if oldValue != footerVisible {
-                setFooterVisible(footerVisible, footerLoadingView)
-            }
-        }
-    }
-
-    public required init(scrollView: PlatformScrollView,
-                         delegate: PagingLoaderDelegate,
-                         setFooterVisible: @escaping (_ visible: Bool, _ footer: PlatformView)->()) {
-        self.scrollView = scrollView
-        self.delegate = delegate
-        self.setFooterVisible = setFooterVisible
+    public required init(_ list: List,
+                         footer: FooterLoadingView = FooterLoadingView(),
+                         hasRefreshControl: Bool = true) {
+        
+        self.list = list
+        self.footer = footer
         super.init()
         
-        fetchedItems = (delegate as? PagingCachable)?.loadFirstPageFromCache() ?? []
+        list.delegate.add(self)
         
-        #if os(iOS)
-        if delegate.hasRefreshControl() {
-            let refreshControl = RefreshControl()
-            refreshControl.addTarget(self, action: #selector(refreshAction), for: .valueChanged)
-            scrollView.refreshControl = refreshControl
-            self.refreshControl = refreshControl
+        footer.retry = { [unowned self] in
+            self.loadMore()
         }
-        scrollView.addObserver(self, forKeyPath: "contentOffset", options: .new, context: nil)
+        #if os(iOS)
+        let refreshControl = hasRefreshControl ? RefreshControl() : nil
+        refreshControl?.addTarget(self, action: #selector(refreshAction), for: .valueChanged)
+        list.list.scrollView.refreshControl = refreshControl
+        
+        list.list.scrollView.observe(\.contentOffset) { [weak self] _, _ in
+            self?.loadMoreIfNeeded()
+        }.retained(by: self)
         #else
         NotificationCenter.default.publisher(for: NSView.boundsDidChangeNotification).sink { [weak self] _ in
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -116,22 +88,22 @@ open class PagingLoader: StaticSetupObject {
             }
         }.retained(by: self)
         #endif
-    }
-    
-    open func set(fetchedItems: [AnyHashable], offset: Any?) {
-        self.fetchedItems = fetchedItems
-        self.offset = offset
-        footerVisible = offset != nil
+        
+        $page.sink { [weak self] page in
+            if let wSelf = self, let page = page {
+                list.set(wSelf.updateItems(page, page.offset == nil ? nil : footer))
+            }
+        }.retained(by: self)
     }
     
     // manually reload starts from the first page, usualy you should run this method in viewDidLoad or viewWillAppear
-    open func refresh(showLoading: Bool) {
+    open func refresh(showLoading: Bool = false) {
         #if os(iOS)
-        if let refreshControl = refreshControl, showLoading {
+        if list.list.scrollView.refreshControl != nil, showLoading {
             DispatchQueue.main.async { [weak self] in
                 self?.internalRefresh(showLoading: true)
             }
-            scrollOnRefreshing(refreshControl)
+            scrollOnRefreshing()
         } else {
             internalRefresh(showLoading: false)
         }
@@ -141,20 +113,18 @@ open class PagingLoader: StaticSetupObject {
     }
     
     private func internalRefresh(showLoading: Bool) {
-        delegate?.performOnRefresh()
-        load(offset: nil, showLoading: showLoading) { [weak self] objects, newOffset in
+        performOnRefresh?()
+        load(offset: nil, showLoading: showLoading).successOnMain { [weak self] page in
             guard let wSelf = self else { return }
             
-            if let currentFirst = wSelf.fetchedItems.first,
-                objects.reversed().contains(currentFirst),
-                wSelf.offset != nil {
-                wSelf.append(items: objects, fromBeginning: true)
+            if let currentFirst = wSelf.page?.items.first,
+               page.items.reversed().contains(currentFirst),
+               wSelf.page?.offset != nil {
+                wSelf.append(page: page, appending: .toHead)
             } else {
-                wSelf.offset = newOffset
-                wSelf.fetchedItems = []
-                wSelf.append(items: objects)
+                wSelf.append(page: page, appending: .replace)
             }
-            (wSelf.delegate as? PagingCachable)?.saveFirstPageInCache(objects: objects)
+            wSelf.firstPageCache?.save(page.items)
         }
     }
     
@@ -162,47 +132,55 @@ open class PagingLoader: StaticSetupObject {
         #if os(iOS)
         performedLoading = true
         #endif
-        load(offset: offset, showLoading: false) { [weak self] objects, newOffset in
+        load(offset: page?.offset, showLoading: false).successOnMain { [weak self] page in
             #if os(iOS)
-            if objects.count > 0 && newOffset != nil {
+            if page.items.count > 0 && page.offset != nil {
                 self?.performedLoading = false
             }
             #endif
-            self?.offset = newOffset
-            self?.append(items: objects)
+            self?.append(page: page, appending: .toTail)
         }
     }
     
-    private func load(offset: Any?, showLoading: Bool, success: @escaping ([AnyHashable], _ newOffset: Any?)->()) {
+    private weak var operation: WorkBase?
+    
+    private func load(offset: Any?, showLoading: Bool) -> Work<LoadedPage> {
         isLoading = true
         
         #if os(iOS)
-        if showLoading, let refreshControl = refreshControl {
+        if showLoading, let refreshControl = list.list.scrollView.refreshControl {
             if !refreshControl.isRefreshing {
                 refreshControl.beginRefreshing()
-                scrollOnRefreshing(refreshControl)
+                scrollOnRefreshing()
             }
-            footerLoadingView.state = .stop
+            footer.state = .stop
         } else {
-            footerLoadingView.state = .loading
+            footer.state = .loading
         }
         #else
-        footerLoadingView.state = .loading
+        footer.state = .loading
         #endif
         
-        let operationId = UUID()
-        currentOperationId = operationId
-        
-        delegate?.load(offset: offset, showLoading: showLoading, completion: { [weak self] (objects, error, newOffset) in
-            guard let wSelf = self, wSelf.delegate != nil, wSelf.currentOperationId == operationId else { return }
+        let operation = load(offset, showLoading)
+        operation.completionOnMain { [weak self] in
+            guard let wSelf = self, wSelf.operation == operation else { return }
             
             wSelf.isLoading = false
-            if let error = error {
+            
+            switch $0 {
+            case .success(let page):
+                wSelf.footer.state = .stop
                 
+                if page.offset != nil {
+                    DispatchQueue.main.async {
+                        self?.loadMoreIfNeeded()
+                    }
+                }
+            case .failure(let error):
                 if error as? RunError == .cancelled || (error as NSError).code == NSURLErrorCancelled {
-                    wSelf.footerLoadingView.state = .stop
+                    wSelf.footer.state = .stop
                 } else {
-                    wSelf.footerLoadingView.state = .failed
+                    wSelf.footer.state = .failed
                     
                     #if os(iOS)
                     if showLoading {
@@ -210,60 +188,53 @@ open class PagingLoader: StaticSetupObject {
                     }
                     #endif
                 }
-                wSelf.footerLoadingView.state = ((error as? RunError) == .cancelled || (error as NSError).code == NSURLErrorCancelled) ? .stop : .failed
-            } else {
-                success(objects ?? [], newOffset)
-                
-                wSelf.footerVisible = wSelf.offset != nil
-                wSelf.footerLoadingView.state = .stop
-                
-                if wSelf.offset != nil {
-                    DispatchQueue.main.async {
-                        self?.loadMoreIfNeeded()
-                    }
-                }
             }
             #if os(iOS)
             wSelf.endRefreshing()
             #endif
-        })
+        }
+        self.operation = operation
+        return operation
     }
     
-    open func append(items: [AnyHashable], fromBeginning: Bool = false) {
-        guard let delegate = delegate else { return }
-        
-        var array = fetchedItems
-        var set = Set(array)
-        
-        let itemsToAdd = fromBeginning ? items.reversed() : items
-        
-        itemsToAdd.forEach {
-            if !set.contains($0) {
-                set.insert($0)
-                
-                if fromBeginning {
-                    array.insert($0, at: 0)
-                } else {
-                    array.append($0)
+    public enum PageAppending {
+        case toHead
+        case toTail
+        case replace
+    }
+    
+    open func append(page: LoadedPage, appending: PageAppending) {
+        if appending == .replace {
+            self.page = page
+        } else {
+            var array = self.page?.items ?? []
+            var set = Set(array)
+            
+            let itemsToAdd = appending == .toHead ? page.items.reversed() : page.items
+            
+            itemsToAdd.forEach {
+                if !set.contains($0) {
+                    set.insert($0)
+                    
+                    if appending == .toHead {
+                        array.insert($0, at: 0)
+                    } else {
+                        array.append($0)
+                    }
                 }
             }
-        }
-        fetchedItems = array
-        delegate.reloadView(false)
-    }
-    
-    open func filterFetchedItems(_ closure: (AnyHashable)->Bool) {
-        let oldCount = fetchedItems.count
-        fetchedItems = fetchedItems.compactMap { closure($0) ? $0 : nil }
-        if oldCount != fetchedItems.count {
-            delegate?.reloadView(false)
+            self.page = LoadedPage(array, offset: page.offset)
         }
     }
     
-    private func isFooterVisible() -> Bool {
-        if let scrollView = scrollView, footerVisible {
-            let frame = scrollView.convert(footerLoadingView.bounds, from: footerLoadingView).insetBy(dx: -footerLoadingInset.width, dy: -footerLoadingInset.height)
-            return footerLoadingView.isDescendant(of: scrollView) &&
+    private func checkFooterVisibiliry() -> Bool {
+        if page?.offset != nil {
+            let inset = footerLoadingInset
+            let scrollView = list.list.scrollView
+            
+            let frame = scrollView.convert(footer.bounds, from: footer).insetBy(dx: -inset.width, dy: -inset.height)
+            
+            return footer.isDescendant(of: scrollView) &&
                    (scrollView.contentSize.height > scrollView.height ||
                     scrollView.contentSize.width > scrollView.width ||
                     scrollView.contentSize.height > 0) &&
@@ -273,31 +244,31 @@ open class PagingLoader: StaticSetupObject {
     }
     
     private func loadMoreIfNeeded() {
-        if let delegate = delegate, delegate.shouldLoadMore() {
-            let footerVisisble = isFooterVisible()
-            
-            if footerLoadingView.state == .failed && !footerVisisble {
-                footerLoadingView.state = .stop
-            }
-            #if os(iOS)
-            let allow = !performedLoading
-            #else
-            let allow = true
-            #endif
-            
-            if allow && footerLoadingView.state == .stop && !isLoading && footerVisisble && fetchedItems.count != 0 {
-                loadMore()
-            }
+        guard shouldLoadMore() else { return }
+        
+        let footerVisisble = checkFooterVisibiliry()
+        
+        if footer.state == .failed && !footerVisisble {
+            footer.state = .stop
+        }
+        #if os(iOS)
+        let allow = !performedLoading
+        #else
+        let allow = true
+        #endif
+        
+        if allow && footer.state == .stop && !isLoading && footerVisisble && page != nil {
+            loadMore()
         }
     }
     
     #if os(iOS)
-    open var processPullToRefreshError: ((PagingLoader, Error)->())!
-
-    open private(set) var refreshControl: UIRefreshControl?
-
-    public var scrollOnRefreshing: ((UIRefreshControl)->())!
-
+    public var processPullToRefreshError: (PagingLoader, Error)->() = { _, error in
+        if let vc = UIViewController.topViewController {
+            Alert.present(message: error.localizedDescription, on: vc)
+        }
+    }
+    
     private var performedLoading = false
     private var shouldEndRefreshing = false
     private var shouldBeginRefreshing = false
@@ -306,18 +277,36 @@ open class PagingLoader: StaticSetupObject {
         shouldBeginRefreshing = true
     }
 
-    open override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
-        if delegate != nil && keyPath == "contentOffset" {
-            loadMoreIfNeeded()
+    private func scrollOnRefreshing() {
+        if let refreshControl = list.list.scrollView.refreshControl {
+            list.list.scrollView.contentOffset = CGPoint(x: 0, y: -refreshControl.bounds.size.height)
         }
     }
-
-    public func endDecelerating() {
+    
+    @objc func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        endDecelerating()
+        
+        list.delegate.without(self) {
+            (list.delegate as? UIScrollViewDelegate)?.scrollViewDidEndDecelerating?(scrollView)
+        }
+    }
+    
+    @objc func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        if !decelerate { endDecelerating() }
+        
+        list.delegate.without(self) {
+            (list.delegate as? UIScrollViewDelegate)?.scrollViewDidEndDragging?(scrollView, willDecelerate: decelerate)
+        }
+    }
+    
+    func endDecelerating() {
         performedLoading = false
-        if shouldEndRefreshing && scrollView?.isDecelerating == false && scrollView?.isDragging == false {
+        let scrollView = list.list.scrollView
+        
+        if shouldEndRefreshing && !scrollView.isDecelerating && !scrollView.isDragging {
             shouldEndRefreshing = false
             DispatchQueue.main.async { [weak self] in
-                self?.refreshControl?.endRefreshing()
+                self?.list.list.scrollView.refreshControl?.endRefreshing()
             }
         }
         if shouldBeginRefreshing {
@@ -327,7 +316,8 @@ open class PagingLoader: StaticSetupObject {
     }
 
     private func endRefreshing() {
-        guard let refreshControl = refreshControl, let scrollView = scrollView else { return }
+        let scrollView = list.list.scrollView
+        guard let refreshControl = scrollView.refreshControl else { return }
         
         if scrollView.isDecelerating || scrollView.isDragging {
             shouldEndRefreshing = true
@@ -338,10 +328,6 @@ open class PagingLoader: StaticSetupObject {
         } else {
             refreshControl.endRefreshing()
         }
-    }
-    
-    deinit {
-        scrollView?.removeObserver(self, forKeyPath: "contentOffset")
     }
     #endif
 }

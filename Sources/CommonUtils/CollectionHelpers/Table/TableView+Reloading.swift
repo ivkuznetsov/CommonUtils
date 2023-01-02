@@ -32,11 +32,6 @@ public extension PlatformTableView {
         #endif
     }
     
-    enum Source {
-        case nib
-        case code
-    }
-    
     #if os(iOS)
     static var cellsKey = "cellsKey"
     private var registeredCells: Set<String> {
@@ -45,7 +40,7 @@ public extension PlatformTableView {
     }
     #endif
     
-    func createCell<T: PlatformTableCell>(for type: T.Type, identifier: String? = nil, source: Source = .nib) -> T {
+    func createCell<T: PlatformTableCell>(for type: T.Type, identifier: String? = nil, source: CellSource = .nib) -> T {
         let className = type.classNameWithoutModule()
         let id = identifier ?? className
         

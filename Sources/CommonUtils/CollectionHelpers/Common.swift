@@ -8,8 +8,8 @@ import Foundation
 import UIKit
 
 public typealias PlatformView = UIView
+public typealias PlatformViewController = UIViewController
 public typealias PlatformButton = UIButton
-
 public typealias PlatformTableView = UITableView
 public typealias PlatformTableCell = UITableViewCell
 public typealias PlatformTableViewAnimation = UITableView.RowAnimation
@@ -22,13 +22,17 @@ public typealias PlatformLayoutDelegate = UICollectionViewDelegateFlowLayout
 public typealias PlatformInset = UIEdgeInsets
 public typealias PlatformInvalidationContext = UICollectionViewLayoutInvalidationContext
 public typealias PlatformScrollView = UIScrollView
+public typealias PlatformTableDelegate = UITableViewDelegate
+public typealias PlatformTableDataSource = UITableViewDataSource
+public typealias PlatformCollectionDelegate = UICollectionViewDelegate
+public typealias PlatformCollectionDataSource = UICollectionViewDataSource
 
 #else
 import AppKit
 
 public typealias PlatformView = NSView
+public typealias PlatformViewController = NSViewController
 public typealias PlatformButton = NSButton
-
 public typealias PlatformTableView = NSTableView
 public typealias PlatformTableCell = NSTableRowView
 public typealias PlatformTableViewAnimation = NSTableView.AnimationOptions
@@ -41,32 +45,8 @@ public typealias PlatformLayoutDelegate = NSCollectionViewDelegateFlowLayout
 public typealias PlatformInset = NSEdgeInsets
 public typealias PlatformInvalidationContext = NSCollectionViewLayoutInvalidationContext
 public typealias PlatformScrollView = NSScrollView
-
+public typealias PlatformTableDelegate = NSTableViewDelegate
+public typealias PlatformTableDataSource = NSTableViewDataSource
+public typealias PlatformCollectionDelegate = NSCollectionViewDelegate
+public typealias PlatformCollectionDataSource = NSCollectionViewDataSource
 #endif
-
-public extension PlatformTableView {
-    
-    struct Cell {
-        public let type: PlatformTableCell.Type
-        public let fill: (PlatformTableCell)->()
-        
-        public init<T: PlatformTableCell>(_ type: T.Type, _ fill: ((T)->())? = nil) {
-            self.type = type
-            self.fill = { fill?($0 as! T) }
-        }
-    }
-}
-
-public extension PlatformCollectionView {
-    
-    struct Cell {
-        public let type: PlatformCollectionCell.Type
-        public let fill: (PlatformCollectionCell)->()
-        
-        public init<T: PlatformCollectionCell>(_ type: T.Type, _ fill: ((T)->())? = nil) {
-            self.type = type
-            self.fill = { fill?($0 as! T) }
-        }
-    }
-}
-

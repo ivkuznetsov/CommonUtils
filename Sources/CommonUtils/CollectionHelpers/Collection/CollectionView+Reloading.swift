@@ -94,18 +94,13 @@ public extension PlatformCollectionView {
         #endif
     }
     
-    enum Source {
-        case nib
-        case code
-    }
-    
     static var cellsKey = "cellsKey"
     private var registeredCells: Set<String> {
         get { objc_getAssociatedObject(self, &PlatformCollectionView.cellsKey) as? Set<String> ?? Set() }
         set { objc_setAssociatedObject(self, &PlatformCollectionView.cellsKey, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
     }
     
-    func createCell<T: PlatformCollectionCell>(for type: T.Type, identifier: String? = nil, source: Source = .nib, at indexPath: IndexPath) -> T {
+    func createCell<T: PlatformCollectionCell>(for type: T.Type, identifier: String? = nil, source: CellSource = .nib, at indexPath: IndexPath) -> T {
         let className = type.classNameWithoutModule()
         let id = identifier ?? className
         

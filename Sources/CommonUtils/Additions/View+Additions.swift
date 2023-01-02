@@ -17,13 +17,19 @@ public extension PlatformView {
         case autoresizing
     }
     
-    func attach(_ view: PlatformView, type: AttachType = .constraints) {
-        view.frame = CGRect(x: 0, y: 0, width: width, height: height)
+    enum Position {
+        case fill
+        case center
+    }
+    
+    func attach(_ view: PlatformView, type: AttachType = .constraints, position: Position = .fill) {
         addSubview(view)
         
         switch type {
         case .safeArea:
             if #available(iOS 13, macOS 11, *) {
+                if position == .center { fallthrough }
+                
                 view.translatesAutoresizingMaskIntoConstraints = false
                 safeAreaLayoutGuide.leftAnchor.constraint(equalTo: view.leftAnchor).isActive = true
                 safeAreaLayoutGuide.rightAnchor.constraint(equalTo: view.rightAnchor).isActive = true
@@ -34,6 +40,8 @@ public extension PlatformView {
             }
         case .layoutMargins:
             if #available(iOS 13, macOS 11, *) {
+                if position == .center { fallthrough }
+                
                 view.translatesAutoresizingMaskIntoConstraints = false
                 layoutMarginsGuide.leadingAnchor.constraint(equalTo: view.leadingAnchor).isActive = true
                 layoutMarginsGuide.trailingAnchor.constraint(equalTo: view.trailingAnchor).isActive = true
@@ -44,24 +52,41 @@ public extension PlatformView {
             }
         case .constraints:
             view.translatesAutoresizingMaskIntoConstraints = false
-            leadingAnchor.constraint(equalTo: view.leadingAnchor).isActive = true
-            trailingAnchor.constraint(equalTo: view.trailingAnchor).isActive = true
-            topAnchor.constraint(equalTo: view.topAnchor).isActive = true
-            let constraint = bottomAnchor.constraint(equalTo: view.bottomAnchor)
             
-            #if os(iOS)
-            constraint.priority = UILayoutPriority(999)
-            #else
-            constraint.priority = NSLayoutConstraint.Priority(999)
-            #endif
-            constraint.isActive = true
+            if position == .center {
+                centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
+                centerYAnchor.constraint(equalTo: view.centerYAnchor).isActive = true
+            } else {
+                leadingAnchor.constraint(equalTo: view.leadingAnchor).isActive = true
+                trailingAnchor.constraint(equalTo: view.trailingAnchor).isActive = true
+                topAnchor.constraint(equalTo: view.topAnchor).isActive = true
+                let constraint = bottomAnchor.constraint(equalTo: view.bottomAnchor)
+                
+                #if os(iOS)
+                constraint.priority = UILayoutPriority(999)
+                #else
+                constraint.priority = NSLayoutConstraint.Priority(999)
+                #endif
+                constraint.isActive = true
+            }
         
         case .autoresizing:
-            #if os(iOS)
-            view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            #else
-            view.autoresizingMask = [.minXMargin, .maxXMargin, .minYMargin, .maxYMargin]
-            #endif
+            if position == .center {
+                #if os(iOS)
+                view.center = CGPoint(x: width / 2, y: height / 2)
+                view.autoresizingMask = [.flexibleTopMargin, .flexibleLeftMargin, .flexibleRightMargin, .flexibleBottomMargin]
+                #else
+                view.setFrameOrigin(.init(x: width / 2 - view.width / 2, y: height / 2 - view.height / 2))
+                view.autoresizingMask = [.height, .width]
+                #endif
+            } else {
+                view.frame = CGRect(x: 0, y: 0, width: width, height: height)
+                #if os(iOS)
+                view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                #else
+                view.autoresizingMask = [.minXMargin, .maxXMargin, .minYMargin, .maxYMargin]
+                #endif
+            }
         }
     }
 }

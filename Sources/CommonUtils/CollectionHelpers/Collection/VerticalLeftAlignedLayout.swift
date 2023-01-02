@@ -8,7 +8,7 @@ import UIKit
 import AppKit
 #endif
 
-open class VerticalLeftAlignedLayout: BoundsResizableLayout {
+public class VerticalLeftAlignedLayout: BoundsResizableLayout {
 
     public override init() {
         super.init()
@@ -24,7 +24,7 @@ open class VerticalLeftAlignedLayout: BoundsResizableLayout {
         minimumInteritemSpacing = 0
     }
     
-    override open func layoutAttributesForElements(in rect: PlatformRect) -> [PlatformLayoutAttribute] {
+    override public func layoutAttributesForElements(in rect: PlatformRect) -> [PlatformLayoutAttribute] {
         let attrs: [PlatformLayoutAttribute]? = super.layoutAttributesForElements(in: rect)
         let inherited = (attrs ?? []).map { $0.copy() as! PlatformLayoutAttribute }
         
@@ -43,7 +43,7 @@ open class VerticalLeftAlignedLayout: BoundsResizableLayout {
         return inherited
     }
 
-    override open func layoutAttributesForItem(at indexPath: IndexPath) -> PlatformLayoutAttribute? {
+    override public func layoutAttributesForItem(at indexPath: IndexPath) -> PlatformLayoutAttribute? {
         guard let current = super.layoutAttributesForItem(at: indexPath)?.copy()
             as? PlatformLayoutAttribute else { return nil }
         

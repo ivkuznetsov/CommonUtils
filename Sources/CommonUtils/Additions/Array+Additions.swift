@@ -21,6 +21,15 @@ public extension Array {
             append(element)
         }
     }
+    
+    func appending(_ element: Element?) -> Self {
+        if let element = element {
+            var result = self
+            result.append(element)
+            return result
+        }
+        return self
+    }
 }
 
 public extension Array where Element == AnyHashable {

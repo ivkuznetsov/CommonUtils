@@ -42,17 +42,25 @@ public class LoadingHelper: ObservableObject {
     public var didFail: AnyPublisher<Fail, Never> { failPublisher.eraseToAnyPublisher() }
     
     private var keyedWorks: [String:WorkBase] = [:]
-    @PublishedDidSet public private(set) var processing: [WorkBase:(progress: WorkProgress?, presentation: Presentation)] = [:]
+    @Published public private(set) var processing: [WorkBase:(progress: WorkProgress?, presentation: Presentation)] = [:]
     
     // progress indicator becomes visible on first Progress block performing
     // 'key' is needed to cancel previous launched operation with the same key
-    public func run<T>(presentation: Presentation, key: String? = nil, progress: Bool = false, _ makeWork: @escaping ()->Work<T>) {
+    public enum Options: Hashable {
+        case showsProgress
+        case prohibitRetry
+    }
+    
+    @discardableResult
+    public func run<T>(_ presentation: Presentation, reuseKey: String? = nil, options: Set<Options> = Set(), _ makeWork: @escaping ()->Work<T>?) -> Work<T> {
         
-        let work = makeWork()
+        guard let work = makeWork() else {
+            return .fail(RunError.cancelled)
+        }
         
-        processing[work] = (progress ? work.progress : nil, presentation)
+        processing[work] = (options.contains(.showsProgress) ? work.progress : nil, presentation)
         
-        if let key = key {
+        if let key = reuseKey {
             keyedWorks[key]?.cancel()
             keyedWorks[key] = work
         }
@@ -60,16 +68,20 @@ public class LoadingHelper: ObservableObject {
         work.runWith { [weak self, weak work] error in
             guard let wSelf = self, let work = work else { return }
             
-            if let key = key, wSelf.keyedWorks[key] == work {
+            if let key = reuseKey, wSelf.keyedWorks[key] == work {
                 wSelf.keyedWorks[key] = nil
             }
             if let error = error {
-                wSelf.failPublisher.send(Fail(error: error,
-                                              retry: { self?.run(presentation: presentation, key: key, progress: progress, makeWork) },
-                                              presentation: presentation))
+                let retry = options.contains(.prohibitRetry) ? nil : { _ = self?.run(presentation,
+                                                                                     reuseKey: reuseKey,
+                                                                                     options: options,
+                                                                                     makeWork) }
+                
+                wSelf.failPublisher.send(Fail(error: error, retry: retry, presentation: presentation))
             }
             wSelf.processing[work] = nil
         }
+        return work
     }
     
     public func cancelOperations() {
