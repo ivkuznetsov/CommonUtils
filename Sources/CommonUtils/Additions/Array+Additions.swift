@@ -31,31 +31,3 @@ public extension Array {
         return self
     }
 }
-
-public extension Array where Element == AnyHashable {
-    
-    //generate diff for TableView and CollectionView
-    func diff(oldData: [AnyHashable]) -> (add: Set<IndexPath>,
-                                          delete: Set<IndexPath>,
-                                          move: [(from: IndexPath, to: IndexPath)]) {
-        var toAdd = Set<IndexPath>()
-        var toDelete = Set<IndexPath>()
-        var toMove: [(IndexPath, IndexPath)] = []
-        
-        difference(from: oldData).inferringMoves().forEach {
-            switch $0 {
-            case let .remove(offset: oldIndex, element: _, associatedWith: newIndex):
-                if let newIndex = newIndex {
-                    toMove.append((IndexPath(item: oldIndex, section: 0), IndexPath(item: newIndex, section: 0)))
-                } else {
-                    toDelete.insert(IndexPath(item: oldIndex, section: 0))
-                }
-            case let .insert(offset: index, element: _, associatedWith: oldIndex):
-                if oldIndex == nil {
-                    toAdd.insert(IndexPath(item: index, section: 0))
-                }
-            }
-        }
-        return (toAdd, toDelete, toMove)
-    }
-}
