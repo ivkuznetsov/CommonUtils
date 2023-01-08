@@ -100,7 +100,7 @@ with(work1, work2) { result1, result2 in
 }
 ```
 
-Work with progess:
+Work with progress:
 
 ```swift
 let progressWork = AsyncWork<String> { work in
@@ -129,7 +129,7 @@ class MyCustomWork: Work<Result> {
 
 ## Keychain
 
-Storing and retreiving data in Keychain.
+Storing and retrieving data in Keychain.
 
 ```swift
 Keychain.set(string: "my key", service: "app.service")
