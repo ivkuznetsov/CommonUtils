@@ -4,51 +4,75 @@
 
 import Foundation
 
+public extension DispatchQueue {
+    
+    static func performOnMain(_ closure: ()->()) {
+        if Thread.isMainThread {
+            closure()
+        } else {
+            DispatchQueue.main.sync {
+                closure()
+            }
+        }
+    }
+}
+
+/// for use with @Published
+public struct PAtomic<T> {
+    
+    private var internalValue: T
+    private let lock = RWLock()
+    
+    public init(_ value: T) {
+        internalValue = value
+    }
+    
+    public var value: T {
+        get {
+            lock.sync { internalValue }
+        }
+        set {
+            lock.sync {
+                DispatchQueue.performOnMain {
+                    internalValue = newValue
+                }
+            }
+        }
+    }
+    
+    public mutating func mutate(_ mutation: (inout T) -> ()) {
+        lock.sync {
+            DispatchQueue.performOnMain {
+                mutation(&internalValue)
+            }
+        }
+    }
+}
+
 @propertyWrapper
 public class RWAtomic<T> {
     private var value: T
-    private var lock = pthread_rwlock_t()
+    private let lock = RWLock()
     
     public init(wrappedValue value: T) {
-        pthread_rwlock_init(&lock, nil)
         self.value = value
     }
 
-    deinit {
-        pthread_rwlock_destroy(&lock)
-    }
-    
     public var wrappedValue: T {
-        get {
-            let result: T
-            pthread_rwlock_rdlock(&lock)
-            result = value
-            pthread_rwlock_unlock(&lock)
-            return result
-        }
-        set {
-            pthread_rwlock_wrlock(&lock)
-            value = newValue
-            pthread_rwlock_unlock(&lock)
-        }
+        get { lock.sync { value } }
+        set { lock.sync { value = newValue } }
     }
     
     public func mutate(_ mutation: (inout T) -> ()) {
-        pthread_rwlock_wrlock(&lock)
-        mutation(&value)
-        pthread_rwlock_unlock(&lock)
+        lock.sync {
+            mutation(&value)
+        }
     }
     
     public func locking<R>(_ block: (T) throws -> R) rethrows -> R {
-        pthread_rwlock_wrlock(&lock)
-        defer { pthread_rwlock_unlock(&lock) }
-        return try block(value)
-    }
-    
-    public func locking(_ block: (T) -> ()) {
-        pthread_rwlock_wrlock(&lock)
-        block(value)
-        pthread_rwlock_unlock(&lock)
+        try lock.sync {
+            try block(value)
+        }
     }
 }
 
@@ -70,5 +94,25 @@ public extension NSLock {
         lock()
         block()
         unlock()
+    }
+}
+
+public class RWLock {
+    private var lock: pthread_rwlock_t
+    
+    public init() {
+        lock = pthread_rwlock_t()
+        pthread_rwlock_init(&lock, nil)
+    }
+    
+    public func sync<T>(_ closure: () throws -> T) rethrows -> T {
+        pthread_rwlock_wrlock(&lock)
+        let result = try closure()
+        pthread_rwlock_unlock(&lock)
+        return result
+    }
+    
+    deinit {
+        pthread_rwlock_destroy(&lock)
     }
 }
