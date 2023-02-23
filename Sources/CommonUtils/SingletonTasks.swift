@@ -52,3 +52,18 @@ public actor SingletonTasks {
         try await shared.run(key: key, block)
     }
 }
+
+public actor ExclusiveTasks {
+    
+    private var currentTasks: [String: Task<Any, Error>] = [:]
+
+    public func run<Success>(key: String, _ block: @Sendable @escaping () async throws -> Success) async throws -> Success {
+        currentTasks[key]?.cancel()
+        
+        let task = Task { try await block() as Any }
+        currentTasks[key] = task
+        let result = try await task.value as! Success
+        currentTasks[key] = nil
+        return result
+    }
+}
