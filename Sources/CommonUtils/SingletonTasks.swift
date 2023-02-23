@@ -57,6 +57,8 @@ public actor ExclusiveTasks {
     
     private var currentTasks: [String: Task<Any, Error>] = [:]
 
+    public init() {}
+    
     public func run<Success>(key: String, _ block: @Sendable @escaping () async throws -> Success) async throws -> Success {
         currentTasks[key]?.cancel()
         
