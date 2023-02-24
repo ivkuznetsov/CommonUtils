@@ -3,6 +3,7 @@
 //
 
 import Foundation
+import Combine
 
 public extension DispatchQueue {
     
@@ -17,35 +18,51 @@ public extension DispatchQueue {
     }
 }
 
-/// for use with @Published
-public struct PAtomic<T> {
+@propertyWrapper
+public struct AtomicPublished<Value> {
     
-    private var internalValue: T
-    private let lock = RWLock()
-    
-    public init(_ value: T) {
-        internalValue = value
-    }
-    
-    public var value: T {
+    public static subscript<T: ObservableObject>(
+        _enclosingInstance instance: T,
+        wrapped wrappedKeyPath: ReferenceWritableKeyPath<T, Value>,
+        storage storageKeyPath: ReferenceWritableKeyPath<T, Self>
+    ) -> Value {
         get {
-            lock.sync { internalValue }
+            let wrapper = instance[keyPath: storageKeyPath]
+            return wrapper.lock.read { wrapper.value }
         }
         set {
-            lock.sync {
-                DispatchQueue.performOnMain {
-                    internalValue = newValue
+            let publisher = instance.objectWillChange
+            
+            DispatchQueue.performOnMain {
+                (publisher as? ObservableObjectPublisher)?.send()
+                let lock = instance[keyPath: storageKeyPath].lock
+                let changePublisher = instance[keyPath: storageKeyPath].publisher
+                
+                lock.write {
+                    instance[keyPath: storageKeyPath].value = newValue
                 }
+                changePublisher.send(newValue)
             }
         }
     }
+
+    @available(*, unavailable, message: "@Published can only be applied to classes")
+    public var wrappedValue: Value {
+        get { fatalError() }
+        set { fatalError() }
+    }
+
+    private let lock = RWLock()
+    private let publisher = PassthroughSubject<Value, Never>()
     
-    public mutating func mutate(_ mutation: (inout T) -> ()) {
-        lock.sync {
-            DispatchQueue.performOnMain {
-                mutation(&internalValue)
-            }
-        }
+    private var value: Value
+    
+    public init(wrappedValue: Value) {
+        value = wrappedValue
+    }
+    
+    public var projectedValue: AnyPublisher<Value, Never> {
+        publisher.eraseToAnyPublisher()
     }
 }
 
@@ -59,18 +76,18 @@ public class RWAtomic<T> {
     }
 
     public var wrappedValue: T {
-        get { lock.sync { value } }
-        set { lock.sync { value = newValue } }
+        get { lock.read { value } }
+        set { lock.write { value = newValue } }
     }
     
     public func mutate(_ mutation: (inout T) -> ()) {
-        lock.sync {
+        lock.write {
             mutation(&value)
         }
     }
     
     public func locking<R>(_ block: (T) throws -> R) rethrows -> R {
-        try lock.sync {
+        try lock.write {
             try block(value)
         }
     }
@@ -105,7 +122,14 @@ public class RWLock {
         pthread_rwlock_init(&lock, nil)
     }
     
-    public func sync<T>(_ closure: () throws -> T) rethrows -> T {
+    public func read<T>(_ closure: () throws -> T) rethrows -> T {
+        pthread_rwlock_rdlock(&lock)
+        let result = try closure()
+        pthread_rwlock_unlock(&lock)
+        return result
+    }
+    
+    public func write<T>(_ closure: () throws -> T) rethrows -> T {
         pthread_rwlock_wrlock(&lock)
         let result = try closure()
         pthread_rwlock_unlock(&lock)
