@@ -66,6 +66,23 @@ public struct AtomicPublished<Value> {
     }
 }
 
+extension AtomicPublished: Codable where Value: Codable {
+    
+    enum CodingKeys: String, CodingKey {
+        case value
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        value = try container.decode(Value.self, forKey: .value)
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(value, forKey: .value)
+    }
+}
+
 @propertyWrapper
 public class RWAtomic<T> {
     private var value: T
