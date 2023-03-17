@@ -123,7 +123,7 @@ public class LoadingHelper: ObservableObject {
                                         retry: { [weak wSelf] in _ = wSelf?.run(presentation, id: id, action) },
                                         presentation: presentation)
                         
-                        if presentation == .opaque {
+                        if case .opaque = presentation {
                             wSelf.opaqueFail = fail
                         }
                         wSelf.failPublisher.send(fail)
@@ -137,8 +137,15 @@ public class LoadingHelper: ObservableObject {
         processing[id]?.cancel()
         processing[id] = wrapper
         
-        if (presentation == .opaque || presentation == .translucent) && opaqueFail != nil {
-            opaqueFail = nil
+        if opaqueFail != nil {
+            if case .opaque = presentation {
+                opaqueFail = nil
+            }
+            #if os(iOS)
+            if case .translucent = presentation {
+               opaqueFail = nil
+            }
+            #endif
         }
         
         if task.isCancelled {
