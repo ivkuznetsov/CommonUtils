@@ -30,18 +30,3 @@ public class PublishedDidSet<Value> {
         get { subject }
     }
 }
-
-public class ObservableObjectWrapper<Value>: ObservableObject {
-    
-    @Published public var observable: Value
-    
-    public init(_ observable: Value) {
-        self.observable = observable
-        
-        if let observable = observable as? any ObservableObject {
-            (observable.objectWillChange as any Publisher as? ObservableObjectPublisher)?.sink(receiveValue: { [weak self] in
-                self?.objectWillChange.send()
-            }).retained(by: self)
-        }
-    }
-}
