@@ -25,8 +25,9 @@ public struct DIContainer {
     fileprivate var dict: [Int:Any] = [:]
     
     public static func register<Service>(_ key: DependencyKey<Service>, _ make: ()->Service) {
+        let service = make()
         _current.mutate {
-            $0.dict[key.hashValue] = make()
+            $0.dict[key.hashValue] = service
         }
     }
     
