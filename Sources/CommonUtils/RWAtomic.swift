@@ -84,7 +84,7 @@ extension AtomicPublished: Codable where Value: Codable {
 }
 
 @propertyWrapper
-public class RWAtomic<T> {
+public struct RWAtomic<T> {
     private var value: T
     private let lock = RWLock()
     
@@ -97,7 +97,7 @@ public class RWAtomic<T> {
         set { lock.write { value = newValue } }
     }
     
-    public func mutate(_ mutation: (inout T) -> ()) {
+    public mutating func mutate(_ mutation: (inout T) -> ()) {
         lock.write {
             mutation(&value)
         }
@@ -131,7 +131,7 @@ public extension NSLock {
     }
 }
 
-public class RWLock {
+public final class RWLock {
     private var lock: pthread_rwlock_t
     
     public init() {

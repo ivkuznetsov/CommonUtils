@@ -10,24 +10,24 @@ import SwiftUI
 import Combine
 
 public struct DependencyKey<Value>: Hashable {
-    private let id = String(describing: Value.self)
-    private var key: String?
+    private let id = ObjectIdentifier(Value.self)
+    private let key: Int?
     
     public init(key: String? = nil) {
-        self.key = key
+        self.key = key?.hashValue
     }
 }
 
-public struct DIContainer {
+public final class DIContainer {
     
-    @RWAtomic fileprivate static var current = DIContainer()
+    fileprivate static let current = DIContainer()
     
-    fileprivate var dict: [Int:Any] = [:]
+    @RWAtomic private var dict: [Int:Any] = [:]
     
     public static func register<Service>(_ key: DependencyKey<Service>, _ make: ()->Service) {
         let service = make()
-        _current.mutate {
-            $0.dict[key.hashValue] = service
+        current._dict.mutate {
+            $0[key.hashValue] = service
         }
     }
     
@@ -72,7 +72,54 @@ public struct ObservedDependency<Service>: DynamicProperty {
     public var projectedValue: Binding<Service> { $wrapper.observable }
 }
 
-public class ObservableObjectWrapper<Value>: ObservableObject {
+@propertyWrapper
+public final class RePublishDependency<Service> {
+    
+    public static subscript<T: ObservableObject>(
+        _enclosingInstance instance: T,
+        wrapped wrappedKeyPath: ReferenceWritableKeyPath<T, Service>,
+        storage storageKeyPath: ReferenceWritableKeyPath<T, RePublishDependency>) -> Service {
+        get {
+            if instance[keyPath: storageKeyPath].observer == nil {
+                instance[keyPath: storageKeyPath].setupObserver(instance)
+            }
+            return instance[keyPath: storageKeyPath].value
+        }
+        set { }
+    }
+    
+    private func setupObserver<T: ObservableObject>(_ instance: T) {
+        if let observable = value as? any ObservableObject {
+            observer = (observable.objectWillChange as any Publisher as? ObservableObjectPublisher)?.sink(receiveValue: { [weak instance] in
+                (instance?.objectWillChange as? any Publisher as? ObservableObjectPublisher)?.send()
+            })
+        } else {
+            observer = nil
+        }
+    }
+
+    private var observer: AnyCancellable?
+    
+    @available(*, unavailable,
+        message: "This property wrapper can only be applied to classes"
+    )
+    public var wrappedValue: Service {
+        get { fatalError() }
+        set { fatalError() }
+    }
+    
+    private var value: Service
+    
+    public init<Container>(_ key: DependencyKey<Container>, _ keyPath: KeyPath<Container, Service>) {
+        value = DIContainer.resolve(key)[keyPath: keyPath]
+    }
+    
+    public init(_ key: DependencyKey<Service>) {
+        value = DIContainer.resolve(key)
+    }
+}
+
+public final class ObservableObjectWrapper<Value>: ObservableObject {
     
     @Published public var observable: Value
     

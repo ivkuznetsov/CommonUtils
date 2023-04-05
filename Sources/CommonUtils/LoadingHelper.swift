@@ -10,7 +10,7 @@ import UIKit
 #endif
 
 @MainActor
-public class LoadingHelper: ObservableObject {
+public final class LoadingHelper: ObservableObject {
     
     public init() {}
     

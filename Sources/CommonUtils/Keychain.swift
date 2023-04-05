@@ -4,7 +4,7 @@
 
 import Foundation
 
-public class Keychain {
+public struct Keychain {
 	
     private static func addQuery(service: String, password: Data) -> CFDictionary {
         [ kSecClass as String: kSecClassGenericPassword,
