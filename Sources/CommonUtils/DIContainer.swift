@@ -11,11 +11,8 @@ import Combine
 
 public struct DependencyKey<Value>: Hashable {
     private let id = ObjectIdentifier(Value.self)
-    private let key: Int?
     
-    public init(key: String? = nil) {
-        self.key = key?.hashValue
-    }
+    public init() {}
 }
 
 public final class DIContainer {
@@ -27,7 +24,7 @@ public final class DIContainer {
     public static func register<Service>(_ key: DependencyKey<Service>, _ make: ()->Service) {
         let service = make()
         current._dict.mutate {
-            $0[key.hashValue] = service
+            $0[key.hashValue] = ObservableObjectWrapper(service)
         }
     }
     
@@ -35,41 +32,47 @@ public final class DIContainer {
         register(key, { service })
     }
     
-    public static func resolve<Service>(_ key: DependencyKey<Service>) -> Service {
-        current.dict[key.hashValue] as! Service
+    public static func resolve<Service>(_ key: DependencyKey<Service>) -> ObservableObjectWrapper<Service> {
+        current.dict[key.hashValue] as! ObservableObjectWrapper<Service>
     }
 }
 
 @propertyWrapper
-public struct Dependency<Service> {
+public struct DependencyPath<Service> { // size = 8
     
     public let wrappedValue: Service
     
     public init<Container>(_ key: DependencyKey<Container>, _ keyPath: KeyPath<Container, Service>) {
-        wrappedValue = DIContainer.resolve(key)[keyPath: keyPath]
-    }
-    
-    public init(_ key: DependencyKey<Service>) {
-        wrappedValue = DIContainer.resolve(key)
+        wrappedValue = DIContainer.resolve(key).observed[keyPath: keyPath]
     }
 }
 
 @propertyWrapper
-public struct ObservedDependency<Service>: DynamicProperty {
+public struct Dependency<Service> { // size = 0
     
-    @ObservedObject private var wrapper: ObservableObjectWrapper<Service>
-    
-    public var wrappedValue: Service { wrapper.observable }
-    
-    public init<Container>(_ key: DependencyKey<Container>, _ keyPath: KeyPath<Container, Service>) {
-        wrapper = .init(DIContainer.resolve(key)[keyPath: keyPath])
-    }
+    public var wrappedValue: Service { DIContainer.resolve(.init()).observed }
     
     public init(_ key: DependencyKey<Service>) {
-        wrapper = .init(DIContainer.resolve(key))
+        _ = wrappedValue // validate existance
+    }
+}
+
+@propertyWrapper
+public struct ObservedDependency<Service>: DynamicProperty { // size = 17
+    
+    @StateObject private var wrapper: ObservableObjectWrapper<Service>
+    
+    public var wrappedValue: Service { wrapper.observed }
+    
+    public init(_ key: DependencyKey<Service>) {
+        _wrapper = .init(wrappedValue: DIContainer.resolve(key))
     }
     
-    public var projectedValue: Binding<Service> { $wrapper.observable }
+    public init<Container>(_ key: DependencyKey<Container>, _ keyPath: KeyPath<Container, Service>) {
+        _wrapper = .init(wrappedValue: .init(DIContainer.resolve(key).observed[keyPath: keyPath]))
+    }
+    
+    public var projectedValue: Binding<Service> { $wrapper.observed }
 }
 
 @propertyWrapper
@@ -111,20 +114,20 @@ public final class RePublishDependency<Service> {
     private var value: Service
     
     public init<Container>(_ key: DependencyKey<Container>, _ keyPath: KeyPath<Container, Service>) {
-        value = DIContainer.resolve(key)[keyPath: keyPath]
+        value = DIContainer.resolve(key).observed[keyPath: keyPath]
     }
     
     public init(_ key: DependencyKey<Service>) {
-        value = DIContainer.resolve(key)
+        value = DIContainer.resolve(key).observed
     }
 }
 
 public final class ObservableObjectWrapper<Value>: ObservableObject {
     
-    @Published public var observable: Value
+    @Published public var observed: Value
     
     public init(_ observable: Value) {
-        self.observable = observable
+        self.observed = observable
         
         if let observable = observable as? any ObservableObject {
             (observable.objectWillChange as any Publisher as? ObservableObjectPublisher)?.sink(receiveValue: { [weak self] in
