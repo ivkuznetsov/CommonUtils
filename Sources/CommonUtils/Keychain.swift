@@ -10,24 +10,24 @@ public struct Keychain {
         [ kSecClass as String: kSecClassGenericPassword,
           kSecAttrService as String: service,
           kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
-          kSecValueData as String: password ] as CFDictionary
+          kSecValueData as String: password ] as [String : Any] as CFDictionary
     }
 
 	private static func retrieveQuery(service: String) -> CFDictionary {
 		[ kSecClass as String: kSecClassGenericPassword,
           kSecAttrService as String: service,
           kSecReturnAttributes as String: true,
-          kSecReturnData as String: true ] as CFDictionary
+          kSecReturnData as String: true ] as [String : Any] as CFDictionary
 	}
 
 	private static func searchQuery(service: String) -> CFDictionary {
 		[ kSecClass as String: kSecClassGenericPassword,
-          kSecAttrService as String: service ] as CFDictionary
+          kSecAttrService as String: service ] as [String : Any] as CFDictionary
 	}
 
     private static func updateQuery(password: Data) -> CFDictionary {
         [ kSecValueData as String: password,
-          kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly ] as CFDictionary
+          kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly ] as [String : Any] as CFDictionary
     }
 
     private static func update(service: String, value: String) -> OSStatus {

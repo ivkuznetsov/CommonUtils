@@ -93,9 +93,9 @@ public final class RePublishDependency<Service> {
     
     private func setupObserver<T: ObservableObject>(_ instance: T) {
         if let observable = value as? any ObservableObject {
-            observer = (observable.objectWillChange as any Publisher as? ObservableObjectPublisher)?.sink(receiveValue: { [weak instance] in
+            observer = observable.sink { [weak instance] in
                 (instance?.objectWillChange as? any Publisher as? ObservableObjectPublisher)?.send()
-            })
+            }
         } else {
             observer = nil
         }
@@ -130,9 +130,9 @@ public final class ObservableObjectWrapper<Value>: ObservableObject {
         self.observed = observable
         
         if let observable = observable as? any ObservableObject {
-            (observable.objectWillChange as any Publisher as? ObservableObjectPublisher)?.sink(receiveValue: { [weak self] in
+            observable.sink(retained: self) { [weak self] in
                 self?.objectWillChange.send()
-            }).retained(by: self)
+            }
         }
     }
 }

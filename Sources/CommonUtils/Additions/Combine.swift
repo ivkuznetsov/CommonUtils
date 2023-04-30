@@ -59,6 +59,29 @@ public extension Publisher where Failure == Never {
     }
 }
 
+public extension ObservableObject {
+    
+    @discardableResult
+    func sinkOnMain(retained: AnyObject? = nil, _ closure: @escaping ()->()) -> AnyCancellable {
+        let result =  objectWillChange.receive(on: DispatchQueue.main).sink { _ in closure() }
+        
+        if let retained = retained {
+            result.retained(by: retained)
+        }
+        return result
+    }
+    
+    @discardableResult
+    func sink(retained: AnyObject? = nil, _ closure: @escaping ()->()) -> AnyCancellable {
+        let result =  objectWillChange.sink { _ in closure() }
+        
+        if let retained = retained {
+            result.retained(by: retained)
+        }
+        return result
+    }
+}
+
 @MainActor
 @propertyWrapper
 public final class RePublish<Value: ObservableObject> {
