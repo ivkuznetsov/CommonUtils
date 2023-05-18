@@ -84,12 +84,12 @@ public extension ObservableObject {
 
 @MainActor
 @propertyWrapper
-public final class RePublish<Value: ObservableObject> {
+public final class RePublished<Value: ObservableObject> {
     
     public static subscript<T: ObservableObject>(
         _enclosingInstance instance: T,
         wrapped wrappedKeyPath: ReferenceWritableKeyPath<T, Value>,
-        storage storageKeyPath: ReferenceWritableKeyPath<T, RePublish>) -> Value {
+        storage storageKeyPath: ReferenceWritableKeyPath<T, RePublished>) -> Value {
         get {
             if instance[keyPath: storageKeyPath].observer == nil {
                 instance[keyPath: storageKeyPath].setupObserver(instance)
