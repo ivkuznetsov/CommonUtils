@@ -7,6 +7,11 @@
 
 import Combine
 import Foundation
+import SwiftUI
+
+public typealias ValuePublisher<T> = PassthroughSubject<T, Never>
+
+public typealias VoidPublisher = PassthroughSubject<Void, Never>
 
 @propertyWrapper
 public class NonPublish<T>: ObservableObject {
@@ -50,8 +55,12 @@ public class PublishedDidSet<Value> {
 public extension Publisher where Failure == Never {
     
     @discardableResult
-    func sinkOnMain(retained: AnyObject? = nil, dropFirst: Bool = true, _ closure: @escaping (Output)->()) -> AnyCancellable {
-        let result = self.dropFirst(dropFirst ? 1 : 0).receive(on: DispatchQueue.main).sink(receiveValue: closure)
+    func sinkOnMain(retained: AnyObject? = nil, dropFirst: Bool = true, _ closure: @MainActor @escaping (Output)->()) -> AnyCancellable {
+        let result = self.dropFirst(dropFirst ? 1 : 0).receive(on: DispatchQueue.main).sink(receiveValue: { value in
+            Task { @MainActor in
+                closure(value)
+            }
+        })
         if let retained = retained {
             result.retained(by: retained)
         }
@@ -62,8 +71,12 @@ public extension Publisher where Failure == Never {
 public extension ObservableObject {
     
     @discardableResult
-    func sinkOnMain(retained: AnyObject? = nil, _ closure: @escaping ()->()) -> AnyCancellable {
-        let result =  objectWillChange.receive(on: DispatchQueue.main).sink { _ in closure() }
+    func sinkOnMain(retained: AnyObject? = nil, _ closure: @MainActor @escaping ()->()) -> AnyCancellable {
+        let result =  objectWillChange.receive(on: DispatchQueue.main).sink { _ in
+            Task { @MainActor in
+                closure()
+            }
+        }
         
         if let retained = retained {
             result.retained(by: retained)
@@ -80,6 +93,28 @@ public extension ObservableObject {
         }
         return result
     }
+}
+
+@propertyWrapper
+public struct BindingPublished<Value>: DynamicProperty {
+    
+    @Binding private var binding: Value
+    @State private var value: Value
+    
+    public var wrappedValue: Value {
+        get { value }
+        nonmutating set {
+            value = newValue
+            binding = newValue
+        }
+    }
+    
+    public init(_ binding: Binding<Value>) {
+        _binding = binding
+        _value = State(initialValue: binding.wrappedValue)
+    }
+    
+    public var projectedValue: Binding<Value> { $value }
 }
 
 @MainActor

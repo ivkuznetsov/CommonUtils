@@ -8,6 +8,16 @@
 import Foundation
 import Combine
 
+public protocol OptionalProtocol {
+    
+    var isNil: Bool { get }
+}
+
+extension Optional : OptionalProtocol {
+    
+    public var isNil: Bool { self == nil }
+}
+
 @propertyWrapper
 public struct PublishedStorage<Value> {
     
@@ -27,7 +37,12 @@ public struct PublishedStorage<Value> {
                 (publisher as? ObservableObjectPublisher)?.send()
                 let wrapper = instance[keyPath: storageKeyPath]
                 let changePublisher = wrapper.publisher
-                wrapper.storage.set(newValue, forKey: wrapper.key)
+                
+                if let value = newValue as? OptionalProtocol, value.isNil {
+                    wrapper.storage.removeObject(forKey: wrapper.key)
+                } else {
+                    wrapper.storage.set(newValue, forKey: wrapper.key)
+                }
                 changePublisher.send(newValue)
             }
         }
