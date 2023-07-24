@@ -69,8 +69,12 @@ public enum DI {
             register(key, { service })
         }
         
-        public static func resolve<Service>(_ key: Key<Service>) -> ObservableObjectWrapper<Service> {
+        public static func resolveObservable<Service>(_ key: Key<Service>) -> ObservableObjectWrapper<Service> {
             current.dict[key.hashValue] as! ObservableObjectWrapper<Service>
+        }
+        
+        public static func resolve<Service>(_ key: Key<Service>) -> Service {
+            resolveObservable(key).observed
         }
     }
     
@@ -79,7 +83,7 @@ public enum DI {
     @propertyWrapper
     public struct Static<Service> { // size = 0
         
-        public var wrappedValue: Service { Container.resolve(.init()).observed }
+        public var wrappedValue: Service { Container.resolve(.init()) }
         
         public init(_ key: Key<Service>) {
             _ = wrappedValue // validate existance
@@ -94,7 +98,7 @@ public enum DI {
         public let wrappedValue: Service
         
         public init<ServiceContainer>(_ key: Key<ServiceContainer>, _ keyPath: KeyPath<ServiceContainer, Service>) {
-            wrappedValue = Container.resolve(key).observed[keyPath: keyPath]
+            wrappedValue = Container.resolveObservable(key).observed[keyPath: keyPath]
         }
     }
     
@@ -110,11 +114,11 @@ public enum DI {
         public var wrappedValue: Service { wrapper.observed }
         
         public init(_ key: Key<Service>) {
-            _wrapper = .init(wrappedValue: Container.resolve(key))
+            _wrapper = .init(wrappedValue: Container.resolveObservable(key))
         }
         
         public init<ServiceContainer>(_ key: Key<ServiceContainer>, _ keyPath: KeyPath<ServiceContainer, Service>) {
-            _wrapper = .init(wrappedValue: .init(Container.resolve(key).observed[keyPath: keyPath]))
+            _wrapper = .init(wrappedValue: .init(Container.resolveObservable(key).observed[keyPath: keyPath]))
         }
         
         public var projectedValue: Binding<Service> { $wrapper.observed }
@@ -158,11 +162,11 @@ public enum DI {
         private var value: Service
         
         public init<ServiceContainer>(_ key: Key<ServiceContainer>, _ keyPath: KeyPath<ServiceContainer, Service>) {
-            value = Container.resolve(key).observed[keyPath: keyPath]
+            value = Container.resolveObservable(key).observed[keyPath: keyPath]
         }
         
         public init(_ key: Key<Service>) {
-            value = Container.resolve(key).observed
+            value = Container.resolve(key)
         }
     }
 }
