@@ -51,7 +51,7 @@ public final class LoadingHelper: ObservableObject {
         case showsProgress
     }
     
-    public class TaskWrapper: Hashable, ObservableObject {
+    public final class TaskWrapper: Hashable, ObservableObject {
         
         @MainActor @Published public var progress: Double = 0
         public let presentation: Presentation
@@ -118,7 +118,7 @@ public final class LoadingHelper: ObservableObject {
                 }
             } catch {
                 if !error.isCancelled, let wSelf = self {
-                    DispatchQueue.main.async {
+                    Task { @MainActor in
                         let fail = Fail(error: error,
                                         retry: { [weak wSelf] in _ = wSelf?.run(presentation, id: id, action) },
                                         presentation: presentation)
@@ -130,7 +130,14 @@ public final class LoadingHelper: ObservableObject {
                     }
                 }
             }
-            await self?.removeProcessing(id: id)
+            
+            if let wSelf = self, let wrapper = wrapper {
+                Task { @MainActor in
+                    if wSelf.processing[id] === wrapper {
+                        wSelf.removeProcessing(id: id)
+                    }
+                }
+            }
         }
         wrapper.cancel = { task.cancel() }
         
