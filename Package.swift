@@ -10,7 +10,8 @@ let package = Package(
         .iOS(.v14)
     ],
     products: [
-        .library(name: "CommonUtils", targets: ["CommonUtils"])
+        .library(name: "CommonUtils",
+                 targets: ["CommonUtils"])
     ],
     dependencies: [],
     targets: [
