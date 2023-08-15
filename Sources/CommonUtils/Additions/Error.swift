@@ -10,6 +10,6 @@ import Foundation
 public extension Error {
     
     var isCancelled: Bool {
-        self as? RunError == .cancelled || (self as NSError).code == NSURLErrorCancelled
+        self as? RunError == .cancelled || (self as NSError).code == NSURLErrorCancelled || self is CancellationError
     }
 }
