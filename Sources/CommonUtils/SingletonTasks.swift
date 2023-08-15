@@ -9,22 +9,16 @@ import Foundation
 
 public actor SerialTasks {
     
-    private var currentTask: Task<Any, Error>?
+    private var task: Task<Any, Error>?
 
     public init() {}
     
     public func run<Success>(_ block: @Sendable @escaping () async throws -> Success) async throws -> Success {
-        if let task = currentTask {
-            currentTask = Task {
-                _ = await task.result
-                return try await block() as Any
-            }
-        } else {
-            currentTask = Task {
-                try await block() as Any
-            }
+        task = Task { [task] in
+            _ = await task?.result
+            return try await block() as Any
         }
-        return try await currentTask!.value as! Success
+        return try await task!.value as! Success
     }
     
     nonisolated public func run<Success>(_ block: @Sendable @escaping () async throws -> Success) {

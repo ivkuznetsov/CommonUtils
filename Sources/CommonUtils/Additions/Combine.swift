@@ -55,7 +55,23 @@ public class PublishedDidSet<Value> {
 public extension Publisher where Failure == Never {
     
     @discardableResult
-    func sinkOnMain(retained: AnyObject? = nil, dropFirst: Bool = true, _ closure: @MainActor @escaping (Output)->()) -> AnyCancellable {
+    func sinkOnMain(retained: AnyObject? = nil, _ closure: @MainActor @escaping (Output)->()) -> AnyCancellable {
+        let result = receive(on: DispatchQueue.main).sink(receiveValue: { value in
+            Task { @MainActor in
+                closure(value)
+            }
+        })
+        if let retained = retained {
+            result.retained(by: retained)
+        }
+        return result
+    }
+}
+
+public extension Published.Publisher {
+    
+    @discardableResult
+    mutating func sinkOnMain(retained: AnyObject? = nil, dropFirst: Bool = true, _ closure: @MainActor @escaping (Value)->()) -> AnyCancellable {
         let result = self.dropFirst(dropFirst ? 1 : 0).receive(on: DispatchQueue.main).sink(receiveValue: { value in
             Task { @MainActor in
                 closure(value)
