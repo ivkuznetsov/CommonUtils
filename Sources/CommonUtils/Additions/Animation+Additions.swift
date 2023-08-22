@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  Animation+Additions.swift
 //  
 //
 //  Created by Ilya Kuznetsov on 30/03/2023.

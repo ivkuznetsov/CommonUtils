@@ -34,4 +34,6 @@ public extension Color {
             opacity: Double(a) / 255
         )
     }
+    
+    static let tappable = Color.init(white: 1, opacity: 0.0001)
 }

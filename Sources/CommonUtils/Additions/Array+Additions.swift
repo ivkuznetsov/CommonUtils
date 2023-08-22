@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  Array+Additions.swift
 //  
 //
 //  Created by Ilya Kuznetsov on 23/12/2022.

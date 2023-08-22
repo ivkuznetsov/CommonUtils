@@ -1,8 +1,5 @@
 //
 //  SingletonTasks.swift
-//  
-//
-//  Created by Ilya Kuznetsov on 08/01/2023.
 //
 
 import Foundation

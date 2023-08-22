@@ -33,7 +33,7 @@ public struct PublishedStorage<Value> {
         set {
             let publisher = instance.objectWillChange
             
-            DispatchQueue.performOnMain {
+            DispatchQueue.onMain {
                 (publisher as? ObservableObjectPublisher)?.send()
                 let wrapper = instance[keyPath: storageKeyPath]
                 let changePublisher = wrapper.publisher
