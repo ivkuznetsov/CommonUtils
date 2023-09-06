@@ -31,3 +31,12 @@ public extension Array {
         return self
     }
 }
+
+public extension Array where Element: Equatable {
+    
+    mutating func remove(_ element: Element) {
+        if let index = firstIndex(of: element) {
+            remove(at: index)
+        }
+    }
+}
