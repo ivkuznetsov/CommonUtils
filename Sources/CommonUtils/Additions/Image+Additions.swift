@@ -40,6 +40,23 @@ public extension UIImage {
         UIGraphicsEndImageContext()
         return image!
     }
+    
+    func reduced(_ maxSide: CGFloat) -> UIImage {
+        if (size.width <= maxSide && size.height <= maxSide) || size.width == 0 || size.height == 0 { return self }
+        
+        let resultSize: CGSize
+        
+        if size.width > size.height {
+            resultSize = .init(width: maxSide, height: floor(maxSide * size.height / size.width))
+        } else {
+            resultSize = .init(width: floor(maxSide * size.width / size.height), height: maxSide)
+        }
+        UIGraphicsBeginImageContext(CGSize(width: resultSize.width, height: resultSize.height))
+        draw(in: CGRect(x: 0, y: 0, width: resultSize.width, height: resultSize.height))
+        let image = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return image!
+    }
 }
 
 #endif
