@@ -45,7 +45,7 @@ public enum DB {
             set { fatalError() }
         }
         
-        private let value = Object<ManagedObject>()
+        private let value = Object<ManagedObject>(wrappedValue: nil)
         
         public init(wrappedValue: ManagedObject? = nil) {
             value.wrappedValue = wrappedValue
@@ -53,14 +53,14 @@ public enum DB {
     }
     
     // For use in SwiftUI views
-    @propertyWrapper
+    @propertyWrapper 
     public struct Observed<ManagedObject: NSManagedObject>: DynamicProperty {
         
         private final class Wrapper {
             var object: ManagedObject?
         }
         
-        @StateObject private var object = Object<ManagedObject>()
+        @StateObject private var object: Object<ManagedObject>
         private let currentObject = Wrapper()
         
         public var wrappedValue: ManagedObject? {
@@ -71,12 +71,17 @@ public enum DB {
             }
         }
         
-        public init(wrappedValue value: ManagedObject? = nil) {
-            currentObject.object = value
+        public init(wrappedValue: ManagedObject?) {
+            currentObject.object = wrappedValue
+            _object = .init(wrappedValue: .init(wrappedValue: wrappedValue))
         }
         
         public func update() {
-            object.value = currentObject.object
+            if object.value == nil, let object = currentObject.object, object.managedObjectContext == nil || object.isDeleted {
+                currentObject.object = nil
+            } else {
+                object.value = currentObject.object
+            }
         }
     }
     
@@ -97,7 +102,7 @@ public enum DB {
             }
         }
         
-        public init(wrappedValue: ManagedObject? = nil) {
+        public init(wrappedValue: ManagedObject?) {
             self.wrappedValue = wrappedValue
             setupObserver()
         }
