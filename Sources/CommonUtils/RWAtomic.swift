@@ -35,8 +35,14 @@ public extension NSLock {
     
     func locking<T>(_ block: () throws -> T) rethrows -> T {
         lock()
-        defer { unlock() }
-        return try block()
+        do {
+            let result = try block()
+            unlock()
+            return result
+        } catch {
+            unlock()
+            throw error
+        }
     }
     
     func locking<T>(_ block: () -> T) -> T {
@@ -62,16 +68,26 @@ public final class RWLock {
     
     public func read<T>(_ closure: () throws -> T) rethrows -> T {
         pthread_rwlock_rdlock(&lock)
-        let result = try closure()
-        pthread_rwlock_unlock(&lock)
-        return result
+        do {
+            let result = try closure()
+            pthread_rwlock_unlock(&lock)
+            return result
+        } catch {
+            pthread_rwlock_unlock(&lock)
+            throw error
+        }
     }
     
     public func write<T>(_ closure: () throws -> T) rethrows -> T {
         pthread_rwlock_wrlock(&lock)
-        let result = try closure()
-        pthread_rwlock_unlock(&lock)
-        return result
+        do {
+            let result = try closure()
+            pthread_rwlock_unlock(&lock)
+            return result
+        } catch {
+            pthread_rwlock_unlock(&lock)
+            throw error
+        }
     }
     
     deinit {
