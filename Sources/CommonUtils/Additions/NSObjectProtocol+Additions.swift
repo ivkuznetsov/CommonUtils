@@ -8,7 +8,7 @@
 import Foundation
 import Combine
 
-fileprivate var retainKey = "retainKey"
+fileprivate var retainKey: Void?
 
 fileprivate class RetainWrapper {
     var objects: [Any] = []
