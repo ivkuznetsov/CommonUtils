@@ -49,7 +49,7 @@ public extension ObservableObject {
     
     @discardableResult
     func sinkOnMain(retained: AnyObject? = nil, _ closure: @MainActor @escaping ()->()) -> AnyCancellable {
-        let result =  objectWillChange.receive(on: DispatchQueue.main).sink { _ in
+        let result = objectWillChange.receive(on: DispatchQueue.main).sink { _ in
             Task { @MainActor in
                 closure()
             }
