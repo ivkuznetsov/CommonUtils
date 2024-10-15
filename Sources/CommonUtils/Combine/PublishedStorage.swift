@@ -28,15 +28,7 @@ public struct PublishedStorage<Value: Codable> {
     ) -> Value {
         get {
             let wrapper = instance[keyPath: storageKeyPath]
-            
-            if let result = wrapper.storage.object(forKey: wrapper.key) {
-                if let result = result as? Value {
-                    return result
-                } else if let result = result as? Data, let value = try? Value.decode(result) {
-                    return value
-                }
-            }
-            return wrapper.defaultValue
+            return UserDefaults.load(key: wrapper.key, storage: wrapper.storage) ?? wrapper.defaultValue
         }
         set {
             let publisher = instance.objectWillChange
@@ -45,16 +37,7 @@ public struct PublishedStorage<Value: Codable> {
                 (publisher as? ObservableObjectPublisher)?.send()
                 let wrapper = instance[keyPath: storageKeyPath]
                 let changePublisher = wrapper.publisher
-                
-                if let value = newValue as? OptionalProtocol, value.isNil {
-                    wrapper.storage.removeObject(forKey: wrapper.key)
-                } else {
-                    if let value = newValue as? NSCoding {
-                        wrapper.storage.set(value, forKey: wrapper.key)
-                    } else if let value = try? newValue.toData() {
-                        wrapper.storage.set(value, forKey: wrapper.key)
-                    }
-                }
+                UserDefaults.store(newValue, key: wrapper.key, storage: wrapper.storage)
                 changePublisher.send(newValue)
             }
         }

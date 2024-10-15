@@ -6,22 +6,23 @@
 //
 
 import Combine
+import Foundation
 
 @MainActor
 public final class Observers {
     
-    public var store: [any Cancellable] = []
+    public var store: [String: any Cancellable] = [:]
     
     public nonisolated init() { }
     
-    public func update(_ update: (_ store: inout [any Cancellable])->()) {
+    public func update(_ update: (_ store: inout [String:any Cancellable])->()) {
         update(&store)
     }
 }
 
 public extension AnyCancellable {
     
-    func store(in observers: Observers) {
-        Task { await observers.update { $0.append(self) } }
+    func store(in observers: Observers, key: String? = nil) {
+        Task { await observers.update { $0[key ?? UUID().uuidString] = self } }
     }
 }

@@ -13,6 +13,10 @@ public struct RWAtomic<T> {
         self.value = value
     }
 
+    public init(_ value: T) {
+        self.value = value
+    }
+
     public var wrappedValue: T {
         get { lock.read { value } }
         set { lock.write { value = newValue } }
@@ -29,7 +33,14 @@ public struct RWAtomic<T> {
             try block(value)
         }
     }
+    
+    public subscript<S>(dynamicMember keyPath: WritableKeyPath<T, S>) -> S {
+        get { lock.read { value[keyPath: keyPath] } }
+        set { lock.write { value[keyPath: keyPath] = newValue } }
+    }
 }
+
+extension RWAtomic: Sendable where T: Sendable { }
 
 public extension NSLock {
     
@@ -58,7 +69,7 @@ public extension NSLock {
     }
 }
 
-public final class RWLock {
+public final class RWLock: @unchecked Sendable {
     private var lock: pthread_rwlock_t
     
     public init() {
