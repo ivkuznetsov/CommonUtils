@@ -7,7 +7,7 @@ let package = Package(
     name: "CommonUtils",
     platforms: [
         .macOS(.v10_15),
-        .iOS(.v14)
+        .iOS(.v15)
     ],
     products: [
         .library(name: "CommonUtils",
