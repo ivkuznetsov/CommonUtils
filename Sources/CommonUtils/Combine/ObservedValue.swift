@@ -10,7 +10,7 @@ import Foundation
 import SwiftUI
 
 @propertyWrapper
-public final class ObservedValue<T: Sendable>: ObservableObject, Sendable {
+public final class ObservedValue<T: Sendable>: ObservableObject, Sendable, HashableObject {
     public nonisolated let publisher: CurrentValueSubject<T, Never>
     private nonisolated let lock = RWLock()
     @MainActor private var ownerPublisher: ObservableObjectPublisher?
@@ -18,16 +18,27 @@ public final class ObservedValue<T: Sendable>: ObservableObject, Sendable {
     public nonisolated var wrappedValue: T {
         get { lock.read { publisher.value } }
         set {
-            lock.write { publisher.send(newValue) }
-            Task { @MainActor in
-                self.objectWillChange.send()
-                self.ownerPublisher?.send()
+            let shouldPublish = lock.write {
+                if let currentValue = publisher.value as? any Equatable,
+                   let newValue = newValue as? any Equatable,
+                    currentValue.isEqual(newValue) {
+                    return false
+                }
+                publisher.send(newValue)
+                return true
+            }
+            
+            if shouldPublish {
+                Task { @MainActor in
+                    self.objectWillChange.send()
+                    self.ownerPublisher?.send()
+                }
             }
         }
     }
     
     public init(_ value: T, owner: (any ObservableObject)? = nil) {
-        self.publisher = .init(value)
+        publisher = .init(value)
     }
     
     public var binding: Binding<T> {
@@ -41,11 +52,21 @@ public final class ObservedValue<T: Sendable>: ObservableObject, Sendable {
     public nonisolated func callAsFunction() -> T { wrappedValue }
     
     public init(from decoder: any Decoder) throws where T: Codable {
-        self.publisher = .init(try .init(from: decoder))
+        publisher = .init(try .init(from: decoder))
     }
     
     public nonisolated func encode(to encoder: any Encoder) throws where T: Codable {
         try wrappedValue.encode(to: encoder)
+    }
+}
+
+extension Equatable {
+    
+    func isEqual(_ other: any Equatable) -> Bool {
+        if let other = other as? Self {
+            return self == other
+        }
+        return false
     }
 }
 
