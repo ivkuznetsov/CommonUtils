@@ -6,25 +6,28 @@ import Foundation
 
 public actor SerialTasks {
     
-    private var task: Task<Any, Error>?
+    private let defaultQueue = UUID().uuidString
     private var currentTasks: [String: Task<Any, Error>] = [:]
     
     public init() {}
     
+    public func run<Success>(_ block: @Sendable @escaping () async -> Success) async -> Success {
+        await run(key: defaultQueue, block)
+    }
+    
     public func run<Success>(_ block: @Sendable @escaping () async throws -> Success) async throws -> Success {
-        task = Task { [task] in
-            _ = await task?.result
-            return try await block() as Any
-        }
-        do {
-            return try await task!.value as! Success
-        } catch {
-            task = nil
-            throw error
-        }
+        try await run(key: defaultQueue, block)
     }
     
     public func run<Success>(key: String, _ block: @Sendable @escaping () async throws -> Success) async throws -> Success {
+        try await internalRun(key: key, block)
+    }
+        
+    public func run<Success>(key: String, _ block: @Sendable @escaping () async -> Success) async -> Success {
+        try! await internalRun(key: key, block)
+    }
+    
+    public func internalRun<Success>(key: String, _ block: @Sendable @escaping () async throws -> Success) async throws -> Success {
         currentTasks[key] = Task { [task=currentTasks[key]] in
             _ = await task?.result
             return try await block() as Any
