@@ -28,10 +28,14 @@ public actor SerialTasks {
     }
     
     public func internalRun<Success>(key: String, _ block: @Sendable @escaping () async throws -> Success) async throws -> Success {
-        currentTasks[key] = Task { [task=currentTasks[key]] in
-            _ = await task?.result
+        while let task = currentTasks[key] {
+            _ = await task.result
+        }
+        
+        currentTasks[key] = Task.detached {
             return try await block() as Any
         }
+        
         do {
             let result = try await currentTasks[key]!.value as! Success
             currentTasks[key] = nil
