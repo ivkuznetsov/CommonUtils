@@ -7,11 +7,11 @@ import Foundation
 public actor SerialTasks {
     
     private let defaultQueue = UUID().uuidString
-    private var currentTasks: [String: Task<Any, Error>] = [:]
+    private var currentTasks: [String: (id: UUID, task: Task<Any, Error>)] = [:]
     
     public init() {}
     
-    public func run<Success>(_ block: @Sendable @escaping () async -> Success) async -> Success {
+    public func run(_ block: @Sendable @escaping () async -> ()) async -> () {
         await run(key: defaultQueue, block)
     }
     
@@ -23,26 +23,33 @@ public actor SerialTasks {
         try await internalRun(key: key, block)
     }
         
-    public func run<Success>(key: String, _ block: @Sendable @escaping () async -> Success) async -> Success {
-        try! await internalRun(key: key, block)
+    public func run(key: String, _ block: @Sendable @escaping () async -> ()) async -> () {
+        try? await internalRun(key: key, block)
     }
     
     public func internalRun<Success>(key: String, _ block: @Sendable @escaping () async throws -> Success) async throws -> Success {
-        while let task = currentTasks[key] {
-            _ = await task.result
-        }
+        let id = UUID()
         
-        currentTasks[key] = Task.detached {
-            return try await block() as Any
-        }
-        
-        do {
-            let result = try await currentTasks[key]!.value as! Success
-            currentTasks[key] = nil
-            return result
-        } catch {
-            currentTasks[key] = nil
-            throw error
+        return try await withTaskCancellationHandler {
+            while let (_, task) = currentTasks[key] {
+                _ = await task.result
+            }
+            try Task.checkCancellation()
+            
+            currentTasks[key] = (id, Task.detached {
+                return try await block() as Any
+            })
+            
+            do {
+                let result = try await currentTasks[key]!.task.value as! Success
+                currentTasks[key] = nil
+                return result
+            } catch {
+                currentTasks[key] = nil
+                throw error
+            }
+        } onCancel: {
+            Task { await cancel(key: key, id: id) }
         }
     }
     
@@ -50,9 +57,12 @@ public actor SerialTasks {
         Task { try await run(block) }
     }
     
-    public func cancel(key: String) {
-        currentTasks[key]?.cancel()
-        currentTasks[key] = nil
+    public func cancel(key: String, id: UUID? = nil) {
+        if let task = currentTasks[key] {
+            if id == nil || task.id == id {
+                task.task.cancel()
+            }
+        }
     }
 }
 

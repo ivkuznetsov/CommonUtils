@@ -17,24 +17,7 @@ public final class ObservedValue<T: Sendable>: ObservableObject, Sendable, Hasha
     
     public nonisolated var wrappedValue: T {
         get { lock.read { publisher.value } }
-        set {
-            let shouldPublish = lock.write {
-                if let currentValue = publisher.value as? any Equatable,
-                   let newValue = newValue as? any Equatable,
-                    currentValue.isEqual(newValue) {
-                    return false
-                }
-                publisher.send(newValue)
-                return true
-            }
-            
-            if shouldPublish {
-                Task { @MainActor in
-                    self.objectWillChange.send()
-                    self.ownerPublisher?.send()
-                }
-            }
-        }
+        set { mutate { $0 = newValue } }
     }
     
     public init(_ value: T, owner: (any ObservableObject)? = nil) {
@@ -47,6 +30,28 @@ public final class ObservedValue<T: Sendable>: ObservableObject, Sendable, Hasha
     
     public func republish(_ owner: any ObservableObject ) {
         Task { @MainActor in ownerPublisher = owner.objectWillChange as? ObservableObjectPublisher }
+    }
+    
+    public func mutate(_ mutation: (inout T) -> ()) {
+        let shouldPublish = lock.write {
+            var newValue = publisher.value
+            mutation(&newValue)
+            
+            if let currentValue = publisher.value as? any Equatable,
+               let newValue = newValue as? any Equatable,
+                currentValue.isEqual(newValue) {
+                return false
+            }
+            publisher.send(newValue)
+            return true
+        }
+        
+        if shouldPublish {
+            Task { @MainActor in
+                self.objectWillChange.send()
+                self.ownerPublisher?.send()
+            }
+        }
     }
     
     public nonisolated func callAsFunction() -> T { wrappedValue }
