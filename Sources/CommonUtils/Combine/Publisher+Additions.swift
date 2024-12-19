@@ -62,7 +62,7 @@ public extension ObservableObject {
     }
     
     @discardableResult
-    func sink(retained: AnyObject? = nil, _ closure: @escaping ()->()) -> AnyCancellable {
+    func sink(retained: AnyObject? = nil, _ closure: @Sendable @escaping ()->()) -> AnyCancellable {
         let result = objectWillChange.sink { _ in closure() }
         
         if let retained = retained {
