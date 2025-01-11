@@ -16,6 +16,17 @@ public typealias VoidPublisher = PassthroughSubject<Void, Never>
 public extension Publisher where Failure == Never {
     
     @discardableResult
+    func sinkSendable(retained: AnyObject? = nil, _ closure: @Sendable @escaping (Output)->()) -> AnyCancellable {
+        let result = sink(receiveValue: { value in
+            closure(value)
+        })
+        if let retained = retained {
+            result.retained(by: retained)
+        }
+        return result
+    }
+    
+    @discardableResult
     func sinkMain(retained: AnyObject? = nil, _ closure: @MainActor @escaping (Output)->()) -> AnyCancellable {
         let result = receive(on: DispatchQueue.main).sink(receiveValue: { value in
             Task { @MainActor in
