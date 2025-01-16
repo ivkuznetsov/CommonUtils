@@ -7,7 +7,9 @@ extension String: JSONDictionaryItem { }
 extension UUID: JSONDictionaryItem { }
 extension Int: JSONDictionaryItem { }
 extension Double: JSONDictionaryItem { }
+extension Float: JSONDictionaryItem { }
 extension Decimal: JSONDictionaryItem { }
+extension NSNumber: JSONDictionaryItem { }
 extension Bool: JSONDictionaryItem { }
 extension [any JSONDictionaryItem]: JSONDictionaryItem { }
 extension [String: any JSONDictionaryItem]: JSONDictionaryItem { }
@@ -43,6 +45,8 @@ public struct JSONDictionary: Sendable, Codable, JSONDictionaryItem, CustomStrin
                 self = .integer(int)
             } else if let double = value as? Double {
                 self = .double(double)
+            } else if let double = value as? Float {
+                self = .double(Double(double))
             } else if let value = value as? JSONDictionary {
                 self = .dictionary(value)
             } else if let value = value as? [Any] {
@@ -63,8 +67,8 @@ public struct JSONDictionary: Sendable, Codable, JSONDictionaryItem, CustomStrin
             case .null: NSNull()
             case .string(let string): string
             case .uuid(let uuid): uuid
-            case .integer(let val): val
-            case .double(let val): val
+            case .integer(let val): NSNumber(integerLiteral: val)
+            case .double(let val): NSNumber(floatLiteral: val)
             case .decimal(let val): val
             case .dictionary(let object): object
             case .array(let array): array.map { $0.value }
