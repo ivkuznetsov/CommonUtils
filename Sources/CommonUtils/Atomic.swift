@@ -28,6 +28,10 @@ public final class Atomic<T>: @unchecked Sendable {
         lock.write { mutation(&value) }
     }
     
+    public func mutate<R>(_ mutation: (inout T) throws -> R) rethrows -> R {
+        try lock.write { try mutation(&value) }
+    }
+    
     public func locking<R>(_ block: (T) throws -> R) rethrows -> R {
         try lock.write {
             try block(value)
