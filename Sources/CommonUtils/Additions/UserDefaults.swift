@@ -24,11 +24,20 @@ public extension UserDefaults {
         if let value = value as? OptionalProtocol, value.isNil {
             storage.removeObject(forKey: key)
         } else {
-            if let value = value as? NSCoding {
+            if let value = value as? NSCoding, isPropertyList(value) {
                 storage.set(value, forKey: key)
             } else if let value = try? value.toData() {
                 storage.set(value, forKey: key)
             }
+        }
+    }
+    
+    static func isPropertyList(_ object: Any) -> Bool {
+        switch object {
+        case is String, is Data, is Date, is NSNumber: true
+        case let array as [Any]: array.allSatisfy { isPropertyList($0) }
+        case let dict as [AnyHashable: Any]: dict.values.allSatisfy { isPropertyList($0) }
+        default: false
         }
     }
 }
