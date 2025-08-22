@@ -9,8 +9,18 @@ import Combine
 import Foundation
 import SwiftUI
 
+public protocol ObservedValueProtocol: ObservableObject, Sendable, HashableObject {
+    associatedtype T: Sendable
+    
+    nonisolated var publisher: CurrentValueSubject<T, Never> { get }
+    
+    nonisolated var wrappedValue: T { get set }
+    nonisolated var binding: Binding<T> { get }
+    nonisolated func callAsFunction() -> T
+}
+
 @propertyWrapper
-public final class ObservedValue<T: Sendable>: ObservableObject, Sendable, HashableObject {
+public final class ObservedValue<T: Sendable>: ObservedValueProtocol {
     public nonisolated let publisher: CurrentValueSubject<T, Never>
     private nonisolated let lock = RWLock()
     @MainActor private var ownerPublisher: ObservableObjectPublisher?
