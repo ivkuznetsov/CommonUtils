@@ -47,7 +47,7 @@ public extension Date {
     }
     
     private var components: DateComponents {
-        Calendar(identifier: .gregorian).dateComponents([.year, .weekOfYear, .month, .weekOfMonth, .day, .hour, .minute, .second], from: self)
+        Calendar(identifier: .gregorian).dateComponents([.year, .yearForWeekOfYear, .weekOfYear, .month, .weekOfMonth, .day, .hour, .minute, .second], from: self)
     }
     
     var weekDay: Int { components.weekday! }
@@ -59,6 +59,8 @@ public extension Date {
     var month: Int { components.month! }
     
     var year: Int { components.year! }
+    
+    var yearForWeekOfYear: Int { components.yearForWeekOfYear! }
     
     var hour: Int { components.hour! }
     
