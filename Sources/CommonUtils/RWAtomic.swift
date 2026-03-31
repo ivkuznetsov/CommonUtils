@@ -22,7 +22,7 @@ public struct RWAtomic<T> {
         set { lock.write { value = newValue } }
     }
     
-    public mutating func mutate(_ mutation: (inout T) -> ()) {
+    public mutating func mutate<R>(_ mutation: (inout T) -> R) -> R {
         lock.write {
             mutation(&value)
         }
