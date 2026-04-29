@@ -16,6 +16,11 @@ public typealias VoidPublisher = PassthroughSubject<Void, Never>
 public extension Publisher where Failure == Never {
     
     @discardableResult
+    func sinkSendable(retained: AnyObject? = nil, _ closure: @Sendable @escaping (Output) async ->()) -> AnyCancellable {
+        sinkSendable(retained: retained) { value in Task { await closure(value) } }
+    }
+    
+    @discardableResult
     func sinkSendable(retained: AnyObject? = nil, _ closure: @Sendable @escaping (Output)->()) -> AnyCancellable {
         let result = sink(receiveValue: { value in
             closure(value)
@@ -27,26 +32,23 @@ public extension Publisher where Failure == Never {
     }
     
     @discardableResult
+    func sinkMain(retained: AnyObject? = nil, _ closure: @MainActor @escaping (Output) async ->()) -> AnyCancellable {
+        sinkSendable(retained: retained) { value in Task { @MainActor in await closure(value) } }
+    }
+        
+    @discardableResult
     func sinkMain(retained: AnyObject? = nil, _ closure: @MainActor @escaping (Output)->()) -> AnyCancellable {
-        let result = receive(on: DispatchQueue.main).sink(receiveValue: { value in
-            Task { @MainActor in
-                closure(value)
-            }
-        })
-        if let retained = retained {
-            result.retained(by: retained)
-        }
-        return result
+        sinkSendable(retained: retained) { value in Task { @MainActor in closure(value) } }
     }
 }
 
 public extension Published.Publisher {
     
     @discardableResult
-    func sinkOnMain(retained: AnyObject? = nil, dropFirst: Bool = true, _ closure: @MainActor @escaping (Value)->()) -> AnyCancellable {
+    func sinkOnMain(retained: AnyObject? = nil, dropFirst: Bool = true, _ closure: @MainActor @escaping (Value) async ->()) -> AnyCancellable {
         let result = self.dropFirst(dropFirst ? 1 : 0).receive(on: DispatchQueue.main).sink(receiveValue: { value in
             Task { @MainActor in
-                closure(value)
+                await closure(value)
             }
         })
         if let retained = retained {
@@ -59,10 +61,10 @@ public extension Published.Publisher {
 public extension ObservableObject {
     
     @discardableResult
-    func sinkOnMain(retained: AnyObject? = nil, _ closure: @MainActor @escaping ()->()) -> AnyCancellable {
+    func sinkOnMain(retained: AnyObject? = nil, _ closure: @MainActor @escaping () async ->()) -> AnyCancellable {
         let result = objectWillChange.receive(on: DispatchQueue.main).sink { _ in
             Task { @MainActor in
-                closure()
+                await closure()
             }
         }
         
@@ -80,6 +82,11 @@ public extension ObservableObject {
             result.retained(by: retained)
         }
         return result
+    }
+    
+    @discardableResult
+    func sink(retained: AnyObject? = nil, _ closure: @Sendable @escaping () async ->()) -> AnyCancellable {
+        sink(retained: retained) { Task { await closure() } }
     }
 }
 

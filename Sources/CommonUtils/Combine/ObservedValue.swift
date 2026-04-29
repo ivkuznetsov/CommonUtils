@@ -92,3 +92,17 @@ extension ObservedValue: Codable where T: Codable {
         publisher.dropFirst().sink { UserDefaults.store($0, key: key, storage: storage) }.retained(by: self)
     }
 }
+
+public extension ObservedValue {
+    
+    @discardableResult
+    func didChange(retained: AnyObject? = nil, _ closure: @Sendable @escaping (_ old: T, _ new: T) async -> ()) -> AnyCancellable {
+        let result = publisher.scan((Optional<T>.none, self())) { ($0.1, current: $1) }.sinkSendable { value in
+            await closure(value.0!, value.1)
+        }
+        if let retained = retained {
+            result.retained(by: retained)
+        }
+        return result
+    }
+}
