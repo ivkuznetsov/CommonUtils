@@ -119,3 +119,23 @@ public actor ExclusiveTasks {
         return result
     }
 }
+
+public actor ThrottledTasks {
+    
+    private var isProcessing = false
+    private var pendingTask: (@isolated(any) () async -> ())?
+
+    public init() {}
+    
+    public func run(_ block: @isolated(any) @escaping () async -> ()) async {
+        pendingTask = block
+        guard !isProcessing else { return }
+        
+        isProcessing = true
+        while let task = pendingTask {
+            pendingTask = nil
+            await task()
+        }
+        isProcessing = false
+    }
+}

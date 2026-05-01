@@ -19,6 +19,7 @@ public protocol ObservedValueProtocol: ObservableObject, Sendable, HashableObjec
     nonisolated func callAsFunction() -> T
 }
 
+@dynamicMemberLookup
 @propertyWrapper
 public final class ObservedValue<T: Sendable>: ObservedValueProtocol {
     public nonisolated let publisher: CurrentValueSubject<T, Never>
@@ -65,6 +66,15 @@ public final class ObservedValue<T: Sendable>: ObservedValueProtocol {
     }
     
     public nonisolated func callAsFunction() -> T { wrappedValue }
+    
+    public subscript<S>(dynamicMember keyPath: KeyPath<T, S>) -> S {
+        lock.read { publisher.value[keyPath: keyPath] }
+    }
+    
+    public subscript<S>(dynamicMember keyPath: WritableKeyPath<T, S>) -> S {
+        get { lock.read { publisher.value[keyPath: keyPath] } }
+        set { mutate { $0[keyPath: keyPath] = newValue } }
+    }
     
     public init(from decoder: any Decoder) throws where T: Codable {
         publisher = .init(try .init(from: decoder))
