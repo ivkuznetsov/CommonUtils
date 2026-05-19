@@ -46,14 +46,23 @@ public extension Publisher where Failure == Never {
     @discardableResult
     func sinkSerialized(retained: AnyObject? = nil, _ closure: @escaping @isolated(any) (Output) async -> ()) -> AnyCancellable {
         let (stream, continuation) = AsyncStream<Output>.makeStream()
-        let result = sink { continuation.yield($0) }
-
-        Task {
+        
+        let task = Task {
             for await value in stream {
                 await closure(value)
             }
         }
 
+        let cancellable = sink(receiveCompletion: { _ in
+            continuation.finish()
+        }) { continuation.yield($0) }
+        
+        let result = AnyCancellable {
+            cancellable.cancel()
+            continuation.finish()
+            task.cancel()
+        }
+        
         if let retained = retained {
             result.retained(by: retained)
         }
