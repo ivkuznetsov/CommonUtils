@@ -11,16 +11,16 @@ import SwiftUI
 @dynamicMemberLookup
 @propertyWrapper
 public final class AtomicValueSubject<T: Sendable>: Sendable, HashableObject {
-    public nonisolated let publisher: CurrentValueSubject<T, Never>
-    private nonisolated let lock = RWLock()
+    public nonisolated let publisher = ValuePublisher<T>()
+    private nonisolated let value: Atomic<T>
     
     public nonisolated var wrappedValue: T {
-        get { lock.read { publisher.value } }
+        get { value.wrappedValue }
         set { mutate { $0 = newValue } }
     }
     
     public init(_ value: T) {
-        publisher = .init(value)
+        self.value = .init(value)
     }
     
     public var binding: Binding<T> {
@@ -28,32 +28,36 @@ public final class AtomicValueSubject<T: Sendable>: Sendable, HashableObject {
     }
     
     public func mutate(_ mutation: (inout T) -> ()) {
-        lock.write {
-            var newValue = publisher.value
-            mutation(&newValue)
+        let publish: T? = value.mutate {
+            let currentValue = $0
+            mutation(&$0)
             
-            if let currentValue = publisher.value as? any Equatable,
-               let newValue = newValue as? any Equatable,
+            if let currentValue = currentValue as? any Equatable,
+               let newValue = $0 as? any Equatable,
                 currentValue.isEqual(newValue) {
-                return
+                return nil
             }
-            publisher.send(newValue)
+            return $0
+        }
+        
+        if let publish {
+            publisher.send(publish)
         }
     }
     
     public nonisolated func callAsFunction() -> T { wrappedValue }
     
     public subscript<S>(dynamicMember keyPath: KeyPath<T, S>) -> S {
-        lock.read { publisher.value[keyPath: keyPath] }
+        value.wrappedValue[keyPath: keyPath]
     }
     
     public subscript<S>(dynamicMember keyPath: WritableKeyPath<T, S>) -> S {
-        get { lock.read { publisher.value[keyPath: keyPath] } }
+        get { value.wrappedValue[keyPath: keyPath] }
         set { mutate { $0[keyPath: keyPath] = newValue } }
     }
     
     public init(from decoder: any Decoder) throws where T: Codable {
-        publisher = .init(try .init(from: decoder))
+        value = .init(try .init(from: decoder))
     }
     
     public nonisolated func encode(to encoder: any Encoder) throws where T: Codable {
@@ -64,8 +68,8 @@ public final class AtomicValueSubject<T: Sendable>: Sendable, HashableObject {
 extension AtomicValueSubject: Codable where T: Codable {
     
     public func store(in key: String, defaultValue: T, storage: UserDefaults = .standard) {
-        lock.write { publisher.send(UserDefaults.load(key: key, storage: storage) ?? defaultValue) }
-        publisher.dropFirst().sink { UserDefaults.store($0, key: key, storage: storage) }.retained(by: self)
+        mutate { $0 = UserDefaults.load(key: key, storage: storage) ?? defaultValue }
+        publisher.sink { UserDefaults.store($0, key: key, storage: storage) }.retained(by: self)
     }
 }
 

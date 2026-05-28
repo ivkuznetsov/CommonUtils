@@ -12,7 +12,7 @@ import SwiftUI
 public protocol ObservedValueProtocol: ObservableObject, Sendable, HashableObject {
     associatedtype T: Sendable
     
-    nonisolated var publisher: CurrentValueSubject<T, Never> { get }
+    nonisolated var publisher: ValuePublisher<T> { get }
     
     nonisolated var wrappedValue: T { get set }
     nonisolated var binding: Binding<T> { get }
@@ -22,17 +22,17 @@ public protocol ObservedValueProtocol: ObservableObject, Sendable, HashableObjec
 @dynamicMemberLookup
 @propertyWrapper
 public final class ObservedValue<T: Sendable>: ObservedValueProtocol {
-    public nonisolated let publisher: CurrentValueSubject<T, Never>
-    private nonisolated let lock = RWLock()
+    public nonisolated let publisher = ValuePublisher<T>()
+    private nonisolated let value: Atomic<T>
     @MainActor private var ownerPublisher: ObservableObjectPublisher?
     
     public nonisolated var wrappedValue: T {
-        get { lock.read { publisher.value } }
+        get { value.wrappedValue }
         set { mutate { $0 = newValue } }
     }
     
     public init(_ value: T, owner: (any ObservableObject)? = nil) {
-        publisher = .init(value)
+        self.value = .init(value)
     }
     
     public var binding: Binding<T> {
@@ -44,20 +44,21 @@ public final class ObservedValue<T: Sendable>: ObservedValueProtocol {
     }
     
     public func mutate(_ mutation: (inout T) -> ()) {
-        let shouldPublish = lock.write {
-            var newValue = publisher.value
-            mutation(&newValue)
+        let publish: T? = value.mutate {
+            let currentValue = $0
+            mutation(&$0)
             
-            if let currentValue = publisher.value as? any Equatable,
-               let newValue = newValue as? any Equatable,
+            if let currentValue = currentValue as? any Equatable,
+               let newValue = $0 as? any Equatable,
                 currentValue.isEqual(newValue) {
-                return false
+                return nil
             }
-            publisher.send(newValue)
-            return true
+            return $0
         }
         
-        if shouldPublish {
+        if let publish {
+            publisher.send(publish)
+            
             Task { @MainActor in
                 self.objectWillChange.send()
                 self.ownerPublisher?.send()
@@ -68,16 +69,16 @@ public final class ObservedValue<T: Sendable>: ObservedValueProtocol {
     public nonisolated func callAsFunction() -> T { wrappedValue }
     
     public subscript<S>(dynamicMember keyPath: KeyPath<T, S>) -> S {
-        lock.read { publisher.value[keyPath: keyPath] }
+        value.wrappedValue[keyPath: keyPath]
     }
     
     public subscript<S>(dynamicMember keyPath: WritableKeyPath<T, S>) -> S {
-        get { lock.read { publisher.value[keyPath: keyPath] } }
+        get { value.wrappedValue[keyPath: keyPath] }
         set { mutate { $0[keyPath: keyPath] = newValue } }
     }
     
     public init(from decoder: any Decoder) throws where T: Codable {
-        publisher = .init(try .init(from: decoder))
+        value = .init(try .init(from: decoder))
     }
     
     public nonisolated func encode(to encoder: any Encoder) throws where T: Codable {
@@ -98,8 +99,8 @@ extension Equatable {
 extension ObservedValue: Codable where T: Codable {
     
     public func store(in key: String, defaultValue: T, storage: UserDefaults = .standard) {
-        lock.write { publisher.send(UserDefaults.load(key: key, storage: storage) ?? defaultValue) }
-        publisher.dropFirst().sink { UserDefaults.store($0, key: key, storage: storage) }.retained(by: self)
+        mutate { $0 = UserDefaults.load(key: key, storage: storage) ?? defaultValue }
+        publisher.sink { UserDefaults.store($0, key: key, storage: storage) }.retained(by: self)
     }
 }
 
