@@ -10,8 +10,9 @@ import SwiftUI
 
 @dynamicMemberLookup
 @propertyWrapper
-public final class AtomicValueSubject<T: Sendable>: Sendable, HashableObject {
-    public nonisolated let publisher = ValuePublisher<T>()
+public final class AtomicValueSubject<T: Sendable>: Sendable, HashableObject, Publisher<T, Never> {
+    
+    private nonisolated let publisher = ValuePublisher<T>()
     private nonisolated let value: Atomic<T>
     
     public nonisolated var wrappedValue: T {
@@ -25,6 +26,10 @@ public final class AtomicValueSubject<T: Sendable>: Sendable, HashableObject {
     
     public var binding: Binding<T> {
         .init(get: { self.wrappedValue }, set: { self.wrappedValue = $0 })
+    }
+    
+    public func postValue() {
+        publisher.send(wrappedValue)
     }
     
     public func mutate(_ mutation: (inout T) -> ()) {
@@ -62,6 +67,11 @@ public final class AtomicValueSubject<T: Sendable>: Sendable, HashableObject {
     
     public nonisolated func encode(to encoder: any Encoder) throws where T: Codable {
         try wrappedValue.encode(to: encoder)
+    }
+    
+    public func receive<S>(subscriber: S) where S : Subscriber, Never == S.Failure, T == S.Input {
+        publisher.receive(subscriber: subscriber)
+        _ = subscriber.receive(wrappedValue)
     }
 }
 

@@ -12,7 +12,7 @@ import SwiftUI
 public protocol ObservedValueProtocol: ObservableObject, Sendable, HashableObject {
     associatedtype T: Sendable
     
-    nonisolated var publisher: ValuePublisher<T> { get }
+    nonisolated var publisher: AtomicValueSubject<T> { get }
     
     nonisolated var wrappedValue: T { get set }
     nonisolated var binding: Binding<T> { get }
@@ -22,17 +22,20 @@ public protocol ObservedValueProtocol: ObservableObject, Sendable, HashableObjec
 @dynamicMemberLookup
 @propertyWrapper
 public final class ObservedValue<T: Sendable>: ObservedValueProtocol {
-    public nonisolated let publisher = ValuePublisher<T>()
-    private nonisolated let value: Atomic<T>
+    public nonisolated let publisher: AtomicValueSubject<T>
     @MainActor private var ownerPublisher: ObservableObjectPublisher?
     
     public nonisolated var wrappedValue: T {
-        get { value.wrappedValue }
-        set { mutate { $0 = newValue } }
+        get { publisher.wrappedValue }
+        set { publisher.wrappedValue = newValue }
     }
     
     public init(_ value: T, owner: (any ObservableObject)? = nil) {
-        self.value = .init(value)
+        publisher = .init(value)
+        publisher.sinkMain(retained: publisher) { [weak self] _ in
+            self?.objectWillChange.send()
+            self?.ownerPublisher?.send()
+        }
     }
     
     public var binding: Binding<T> {
@@ -44,41 +47,22 @@ public final class ObservedValue<T: Sendable>: ObservedValueProtocol {
     }
     
     public func mutate(_ mutation: (inout T) -> ()) {
-        let publish: T? = value.mutate {
-            let currentValue = $0
-            mutation(&$0)
-            
-            if let currentValue = currentValue as? any Equatable,
-               let newValue = $0 as? any Equatable,
-                currentValue.isEqual(newValue) {
-                return nil
-            }
-            return $0
-        }
-        
-        if let publish {
-            publisher.send(publish)
-            
-            Task { @MainActor in
-                self.objectWillChange.send()
-                self.ownerPublisher?.send()
-            }
-        }
+        publisher.mutate(mutation)
     }
     
     public nonisolated func callAsFunction() -> T { wrappedValue }
     
     public subscript<S>(dynamicMember keyPath: KeyPath<T, S>) -> S {
-        value.wrappedValue[keyPath: keyPath]
+        publisher.wrappedValue[keyPath: keyPath]
     }
     
     public subscript<S>(dynamicMember keyPath: WritableKeyPath<T, S>) -> S {
-        get { value.wrappedValue[keyPath: keyPath] }
-        set { mutate { $0[keyPath: keyPath] = newValue } }
+        get { publisher.wrappedValue[keyPath: keyPath] }
+        set { publisher.wrappedValue[keyPath: keyPath] = newValue }
     }
     
     public init(from decoder: any Decoder) throws where T: Codable {
-        value = .init(try .init(from: decoder))
+        publisher = .init(try .init(from: decoder))
     }
     
     public nonisolated func encode(to encoder: any Encoder) throws where T: Codable {

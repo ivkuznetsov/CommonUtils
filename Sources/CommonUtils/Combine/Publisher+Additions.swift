@@ -34,13 +34,7 @@ public extension Publisher where Failure == Never {
     @discardableResult
     func sinkIsolated(retained: AnyObject? = nil,
                       _ closure: @escaping @isolated(any) (Output) async -> ()) -> AnyCancellable {
-        let result = sink(receiveValue: { value in
-            Task { await closure(value) }
-        })
-        if let retained = retained {
-            result.retained(by: retained)
-        }
-        return result
+        sinkSendable(retained: retained) { [closure] value in Task { await closure(value) } }
     }
     
     @discardableResult
@@ -100,10 +94,8 @@ public extension Published.Publisher {
 public extension ObservableObject {
     
     @discardableResult
-    func sinkOnMain(retained: AnyObject? = nil, _ closure: @MainActor @escaping () async ->()) -> AnyCancellable {
-        let result = objectWillChange.receive(on: DispatchQueue.main).sink { _ in
-            Task { await closure() }
-        }
+    func sink(retained: AnyObject? = nil, _ closure: @Sendable @escaping ()->()) -> AnyCancellable {
+        let result = objectWillChange.sink { _ in closure() }
         
         if let retained = retained {
             result.retained(by: retained)
@@ -112,13 +104,8 @@ public extension ObservableObject {
     }
     
     @discardableResult
-    func sink(retained: AnyObject? = nil, _ closure: @Sendable @escaping ()->()) -> AnyCancellable {
-        let result = objectWillChange.sink { _ in closure() }
-        
-        if let retained = retained {
-            result.retained(by: retained)
-        }
-        return result
+    func sinkOnMain(retained: AnyObject? = nil, _ closure: @MainActor @escaping () async ->()) -> AnyCancellable {
+        sink(retained: retained) { Task { await closure() } }
     }
     
     @discardableResult
@@ -134,14 +121,23 @@ public extension ObservableObject {
     @discardableResult
     func sinkSerialized(retained: AnyObject? = nil, _ closure: @escaping @isolated(any) () async -> ()) -> AnyCancellable {
         let (stream, continuation) = AsyncStream<Void>.makeStream()
-        let result = sink { continuation.yield() }
-
-        Task {
+        
+        let task = Task {
             for await _ in stream {
                 await closure()
             }
         }
 
+        let cancellable = objectWillChange.sink(receiveCompletion: { _ in
+            continuation.finish()
+        }) { _ in continuation.yield() }
+        
+        let result = AnyCancellable {
+            cancellable.cancel()
+            continuation.finish()
+            task.cancel()
+        }
+        
         if let retained = retained {
             result.retained(by: retained)
         }
