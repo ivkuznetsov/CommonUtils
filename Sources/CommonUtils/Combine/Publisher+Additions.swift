@@ -32,6 +32,16 @@ public extension Publisher where Failure == Never {
     }
     
     @discardableResult
+    func mapSendable<T>(_ transform: @Sendable @escaping (Self.Output) -> T) -> Publishers.Map<Self, T> {
+        map(transform)
+    }
+    
+    @discardableResult
+    func compactMapSendable<T>(_ transform: @escaping (Self.Output) -> T?) -> Publishers.CompactMap<Self, T> {
+        compactMap(transform)
+    }
+    
+    @discardableResult
     func sinkIsolated(retained: AnyObject? = nil,
                       _ closure: @escaping @isolated(any) (Output) async -> ()) -> AnyCancellable {
         sinkSendable(retained: retained) { [closure] value in Task { await closure(value) } }
@@ -155,7 +165,7 @@ public extension ObservableObject {
 
 public extension Publisher {
     
-    func map<T>(_ transform: @escaping (Output) async throws -> T) -> Publishers.FlatMap<Future<T, Error>, Publishers.SetFailureType<Self, Error>> {
+    func map<T>(_ transform: @Sendable @escaping (Output) async throws -> T) -> Publishers.FlatMap<Future<T, Error>, Publishers.SetFailureType<Self, Error>> {
         flatMap { value in
             Future { promise in
                 Task {
@@ -170,7 +180,7 @@ public extension Publisher {
         }
     }
     
-    func map<T>(_ transform: @escaping (Output) async -> T) -> Publishers.FlatMap<Future<T, Never>, Self> {
+    func map<T>(_ transform: @Sendable @escaping (Output) async -> T) -> Publishers.FlatMap<Future<T, Never>, Self> {
         flatMap { value in
             Future { promise in
                 Task {
