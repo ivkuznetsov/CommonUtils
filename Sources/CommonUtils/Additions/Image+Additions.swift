@@ -30,10 +30,11 @@ public extension UIImage {
         options.scale = 1
         options.opaque = false
         
-        let result = UIGraphicsImageRenderer(size: size, format: options).image { ctx in
-            ctx.cgContext.translateBy(x: 0, y: size.height)
+        let result = UIGraphicsImageRenderer(size: CGSize(width: minSide, height: minSide), format: options).image { ctx in
+            ctx.cgContext.translateBy(x: 0, y: newSize.height)
             ctx.cgContext.scaleBy(x: 1, y: -1)
-            ctx.cgContext.draw(cgImage, in: CGRect(x: minSide / 2 - newSize.width / 2, y: minSide / 2 - newSize.height / 2,
+            ctx.cgContext.draw(cgImage, in: CGRect(x: minSide / 2 - newSize.width / 2,
+                                                   y: newSize.height / 2 - minSide / 2,
                                                    width: newSize.width, height: newSize.height),
                                byTiling: false)
         }.cgImage!
