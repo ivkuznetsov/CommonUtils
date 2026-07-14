@@ -48,6 +48,24 @@ public extension Publisher where Failure == Never {
     }
     
     @discardableResult
+    func sink<Owner: Actor>(isolated: Owner,
+                            retained: AnyObject? = nil,
+                            _ closure: @escaping (isolated Owner, Output) async -> ()) -> AnyCancellable {
+        sinkIsolated(retained: retained) { [weak isolated] value in
+            if let isolated { await closure(isolated, value) }
+        }
+    }
+    
+    @discardableResult
+    func sink<Owner: Actor>(serialized isolated: Owner,
+                            retained: AnyObject? = nil,
+                            _ closure: @escaping (isolated Owner, Output) async -> ()) -> AnyCancellable {
+        sinkSerialized(retained: retained) { [weak isolated] value in
+            if let isolated { await closure(isolated, value) }
+        }
+    }
+    
+    @discardableResult
     func sinkSerialized(retained: AnyObject? = nil, _ closure: @escaping @isolated(any) (Output) async -> ()) -> AnyCancellable {
         let (stream, continuation) = AsyncStream<Output>.makeStream()
         
@@ -71,6 +89,15 @@ public extension Publisher where Failure == Never {
             result.retained(by: retained)
         }
         return result
+    }
+    
+    @discardableResult
+    func sink<Owner: Actor>(throttled isolated: Owner,
+                            retained: AnyObject? = nil,
+                            _ closure: @escaping (isolated Owner, Output) async -> ()) -> AnyCancellable {
+        sinkThrottled(retained: retained) { [weak isolated] value in
+            if let isolated { await closure(isolated, value) }
+        }
     }
     
     @discardableResult
