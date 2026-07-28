@@ -1,6 +1,9 @@
 import Foundation
 
-public protocol JSONDictionaryItem: Sendable { }
+public protocol JSONDictionaryItem: Sendable {
+    
+    var hashValue: Int { get }
+}
 
 extension NSNull: JSONDictionaryItem { }
 extension String: JSONDictionaryItem { }
@@ -11,14 +14,24 @@ extension Float: JSONDictionaryItem { }
 extension Decimal: JSONDictionaryItem { }
 extension NSNumber: JSONDictionaryItem { }
 extension Bool: JSONDictionaryItem { }
-extension [any JSONDictionaryItem]: JSONDictionaryItem { }
-extension [String: any JSONDictionaryItem]: JSONDictionaryItem { }
+extension [any JSONDictionaryItem]: JSONDictionaryItem {
+    
+    public var hashValue: Int { map { $0.hashValue }.hashValue }
+}
+extension [String: any JSONDictionaryItem]: JSONDictionaryItem {
+    
+    public var hashValue: Int { mapValues { $0.hashValue }.hashValue }
+}
 
 public struct JSONDictionary: Sendable, Codable, JSONDictionaryItem, CustomStringConvertible {
     
     public var store: [String: Item] = [:]
     
     public var description: String { store.description }
+    
+    public var hashValue: Int {
+        store.mapValues { $0.hashValue }.hashValue
+    }
     
     public enum Item: Sendable, Codable, CustomStringConvertible, JSONDictionaryItem {
         
@@ -33,6 +46,8 @@ public struct JSONDictionary: Sendable, Codable, JSONDictionaryItem, CustomStrin
         case array([Item])
         
         public var description: String { "\(value)" }
+        
+        public var hashValue: Int { value.hashValue }
         
         init(value: Any) throws {
             if let item = value as? Item {
