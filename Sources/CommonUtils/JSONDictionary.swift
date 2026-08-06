@@ -72,6 +72,8 @@ public struct JSONDictionary: Sendable, Codable, JSONDictionaryItem, CustomStrin
                 self = .decimal(decimal)
             } else if let value = value as? [String: Any] {
                 self = try .dictionary(JSONDictionary(value))
+            } else if value is NSNull {
+                self = .null
             } else {
                 throw RunError.custom("Unsupported type")
             }
