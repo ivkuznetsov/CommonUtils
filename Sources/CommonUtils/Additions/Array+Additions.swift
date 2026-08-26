@@ -10,10 +10,17 @@ import Foundation
 public extension Array {
     
     subscript (safe index: Index) -> Element? {
-        if index >= 0 && index < count {
-            return self[index]
+        get {
+            if index >= 0 && index < count {
+                return self[index]
+            }
+            return nil
         }
-        return nil
+        set {
+            if let newValue, index >= 0 && index < count {
+                return self[index] = newValue
+            }
+        }
     }
     
     mutating func appendSafe(_ element: Element?) {
