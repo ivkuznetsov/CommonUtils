@@ -15,16 +15,56 @@ public actor SerialTasks {
         await run(key: defaultQueue, block)
     }
     
+    public func runIsolated(_ block: @escaping @isolated(any) () async -> ()) async -> () {
+        await run(key: defaultQueue, { await block() })
+    }
+    
+    public func run<Owner: Actor>(isolated: Owner, _ block: @escaping (isolated Owner) async -> ()) async -> () {
+        await run(key: defaultQueue) { [weak isolated] in
+            if let isolated { await block(isolated) }
+        }
+    }
+    
     public func run<Success>(_ block: @Sendable @escaping () async throws -> Success) async throws -> Success {
         try await run(key: defaultQueue, block)
+    }
+    
+    public func runIsolated<Success>(_ block: @escaping @isolated(any) () async throws -> Success) async throws -> Success {
+        try await run(key: defaultQueue, { try await block() })
+    }
+    
+    public func run<Owner: Actor, Success>(isolated: Owner, _ block: @escaping (isolated Owner) async throws -> Success) async throws -> Success {
+        try await run(key: defaultQueue) { [weak isolated] in
+            if let isolated { try await block(isolated) } else { throw CancellationError() }
+        }
     }
     
     public func run<Success>(key: String, _ block: @Sendable @escaping () async throws -> Success) async throws -> Success {
         try await internalRun(key: key, block)
     }
+    
+    public func runIsolated<Success>(key: String, _ block: @escaping @isolated(any) () async throws -> Success) async throws -> Success {
+        try await internalRun(key: key, { try await block() })
+    }
+    
+    public func run<Owner: Actor, Success>(key: String, isolated: Owner, _ block: @Sendable @escaping (isolated Owner) async throws -> Success) async throws -> Success {
+        try await internalRun(key: key) { [weak isolated] in
+            if let isolated { try await block(isolated) } else { throw CancellationError() }
+        }
+    }
         
     public func run(key: String, _ block: @Sendable @escaping () async -> ()) async -> () {
         try? await internalRun(key: key, block)
+    }
+    
+    public func runIsolated(key: String, _ block: @escaping @isolated(any) () async -> ()) async -> () {
+        try? await internalRun(key: key, { await block() })
+    }
+    
+    public func run<Owner: Actor>(key: String, isolated: Owner, _ block: @Sendable @escaping (isolated Owner) async -> ()) async -> () {
+        try? await internalRun(key: key) { [weak isolated] in
+            if let isolated { await block(isolated) } else { throw CancellationError() }
+        }
     }
     
     public func internalRun<Success>(key: String, _ block: @Sendable @escaping () async throws -> Success) async throws -> Success {
@@ -54,7 +94,19 @@ public actor SerialTasks {
     }
     
     nonisolated public func run<Success>(_ block: @Sendable @escaping () async throws -> Success) {
-        Task { try await run(block) }
+        Task { try? await run(block) }
+    }
+    
+    nonisolated public func runIsolated<Success>(_ block: @escaping @isolated(any) () async throws -> Success) {
+        Task { try? await run({ try await block() }) }
+    }
+    
+    nonisolated public func run<Owner: Actor, Success>(isolated: Owner, _ block: @Sendable @escaping (isolated Owner) async -> Success) {
+        Task {
+            try? await run({ [weak isolated] in
+                if let isolated { await block(isolated) } else { throw CancellationError() }
+            })
+        }
     }
     
     public func cancel(key: String, id: UUID? = nil) {
@@ -137,5 +189,13 @@ public actor ThrottledTasks {
             await task()
         }
         isProcessing = false
+    }
+    
+    public func run<Owner: Actor>(isolated: Owner, _ block: @escaping (isolated Owner) async -> ()) async {
+        await run { [weak isolated] in
+            if let isolated {
+                await block(isolated)
+            }
+        }
     }
 }

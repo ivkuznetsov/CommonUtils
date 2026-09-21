@@ -156,6 +156,17 @@ public extension ObservableObject {
     }
     
     @discardableResult
+    func sink<Owner: Actor>(isolated: Owner, retained: AnyObject? = nil, _ closure: @escaping (isolated Owner) async ->()) -> AnyCancellable {
+        sink(retained: retained) { [closure, weak isolated] in
+            Task {
+                if let isolated {
+                    await closure(isolated)
+                }
+            }
+        }
+    }
+    
+    @discardableResult
     func sinkSerialized(retained: AnyObject? = nil, _ closure: @escaping @isolated(any) () async -> ()) -> AnyCancellable {
         let (stream, continuation) = AsyncStream<Void>.makeStream()
         
