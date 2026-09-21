@@ -4,12 +4,14 @@
 
 import Foundation
 
-public actor SerialTasks {
+public protocol TasksProtocol {
     
-    private let defaultQueue = UUID().uuidString
-    private var currentTasks: [String: (id: UUID, task: Task<Any, Error>)] = [:]
+    var defaultQueue: String { get }
     
-    public init() {}
+    func internalRun<Success>(key: String, _ block: @Sendable @escaping () async throws -> Success) async throws -> Success
+}
+
+extension TasksProtocol {
     
     public func run(_ block: @Sendable @escaping () async -> ()) async -> () {
         await run(key: defaultQueue, block)
@@ -52,7 +54,7 @@ public actor SerialTasks {
             if let isolated { try await block(isolated) } else { throw CancellationError() }
         }
     }
-        
+    
     public func run(key: String, _ block: @Sendable @escaping () async -> ()) async -> () {
         try? await internalRun(key: key, block)
     }
@@ -66,6 +68,30 @@ public actor SerialTasks {
             if let isolated { await block(isolated) } else { throw CancellationError() }
         }
     }
+    
+    nonisolated public func run<Success>(_ block: @Sendable @escaping () async throws -> Success) {
+        Task { try? await run(block) }
+    }
+    
+    nonisolated public func runIsolated<Success>(_ block: @escaping @isolated(any) () async throws -> Success) {
+        Task { try? await run({ try await block() }) }
+    }
+    
+    nonisolated public func run<Owner: Actor, Success>(isolated: Owner, _ block: @Sendable @escaping (isolated Owner) async -> Success) {
+        Task {
+            try? await run({ [weak isolated] in
+                if let isolated { await block(isolated) } else { throw CancellationError() }
+            })
+        }
+    }
+}
+
+public actor SerialTasks: TasksProtocol {
+    
+    public let defaultQueue = UUID().uuidString
+    private var currentTasks: [String: (id: UUID, task: Task<Any, Error>)] = [:]
+    
+    public init() {}
     
     public func internalRun<Success>(key: String, _ block: @Sendable @escaping () async throws -> Success) async throws -> Success {
         let id = UUID()
@@ -93,19 +119,52 @@ public actor SerialTasks {
         }
     }
     
-    nonisolated public func run<Success>(_ block: @Sendable @escaping () async throws -> Success) {
-        Task { try? await run(block) }
+    public func cancel(key: String, id: UUID? = nil) {
+        if let task = currentTasks[key] {
+            if id == nil || task.id == id {
+                task.task.cancel()
+            }
+        }
+    }
+}
+
+public actor OrderedSerialTasks: TasksProtocol {
+    
+    public let defaultQueue = UUID().uuidString
+    private var currentTasks: [String: (id: UUID, task: Task<Any, Error>)] = [:]
+    
+    public init() {}
+    
+    public func internalRun<Success>(key: String, _ block: @Sendable @escaping () async throws -> Success) async throws -> Success {
+        let id = UUID()
+        let previousTask = currentTasks[key]?.task
+        let task = Task.detached {
+            if let previousTask {
+                _ = await previousTask.result
+            }
+            try Task.checkCancellation()
+            return try await block() as Any
+        }
+        
+        currentTasks[key] = (id, task)
+        
+        return try await withTaskCancellationHandler {
+            do {
+                let result = try await task.value as! Success
+                cleanup(key: key, id: id)
+                return result
+            } catch {
+                cleanup(key: key, id: id)
+                throw error
+            }
+        } onCancel: {
+            task.cancel()
+        }
     }
     
-    nonisolated public func runIsolated<Success>(_ block: @escaping @isolated(any) () async throws -> Success) {
-        Task { try? await run({ try await block() }) }
-    }
-    
-    nonisolated public func run<Owner: Actor, Success>(isolated: Owner, _ block: @Sendable @escaping (isolated Owner) async -> Success) {
-        Task {
-            try? await run({ [weak isolated] in
-                if let isolated { await block(isolated) } else { throw CancellationError() }
-            })
+    private func cleanup(key: String, id: UUID) {
+        if currentTasks[key]?.id == id {
+            currentTasks[key] = nil
         }
     }
     
@@ -155,13 +214,14 @@ public actor SingletonTasks {
     }
 }
 
-public actor ExclusiveTasks {
+public actor ExclusiveTasks: TasksProtocol {
     
+    public let defaultQueue = UUID().uuidString
     private var currentTasks: [String: Task<Any, Error>] = [:]
 
     public init() {}
     
-    public func run<Success>(key: String, _ block: @Sendable @escaping () async throws -> Success) async throws -> Success {
+    public func internalRun<Success>(key: String, _ block: @Sendable @escaping () async throws -> Success) async throws -> Success {
         currentTasks[key]?.cancel()
         
         let task = Task { try await block() as Any }
