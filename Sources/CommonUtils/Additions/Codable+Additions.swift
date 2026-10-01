@@ -3,6 +3,7 @@
 //
 
 import Foundation
+import Combine
 
 public extension Data {
     
@@ -20,16 +21,26 @@ public extension Encodable {
         try toData().toDict()
     }
     
-    func toData(_ encoder: JSONEncoder = JSONEncoder()) throws -> Data {
+    func toData() throws -> Data {
+        let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
-        return try encoder.encode(self)
+        return try toData(encoder)
+    }
+        
+    func toData<E: TopLevelEncoder>(_ encoder: E) throws -> E.Output {
+        try encoder.encode(self)
     }
 }
 
 public extension Decodable {
     
-    static func decode(_ data: Data, decoder: JSONDecoder = JSONDecoder()) throws -> Self {
+    static func decode(_ data: Data) throws -> Self {
+        let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(self, from: data)
+    }
+    
+    static func decode<D: TopLevelDecoder>(_ data: D.Input, decoder: D) throws -> Self {
         return try decoder.decode(self, from: data)
     }
     
