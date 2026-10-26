@@ -30,6 +30,13 @@ public extension Encodable {
     func toData<E: TopLevelEncoder>(_ encoder: E) throws -> E.Output {
         try encoder.encode(self)
     }
+    
+    func write(to url: URL, dates: JSONEncoder.DateEncodingStrategy = .iso8601) throws {
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = dates
+        try toData(encoder).write(to: url, options: [.atomic])
+    }
 }
 
 public extension Decodable {
@@ -47,5 +54,12 @@ public extension Decodable {
     static func decode(_ dict: [String : Any]) throws -> Self {
         let data = try Foundation.JSONSerialization.data(withJSONObject: dict, options: [])
         return try decode(data)
+    }
+    
+    init(contentsOf url: URL, dates: JSONDecoder.DateDecodingStrategy = .iso8601) throws {
+        let data = try Data(contentsOf: url)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = dates
+        self = try .decode(data, decoder: decoder)
     }
 }
