@@ -94,8 +94,9 @@ public extension Publisher where Failure == Never {
     @discardableResult
     func sink<Owner: Actor>(throttled isolated: Owner,
                             retained: AnyObject? = nil,
+                            duration: TimeInterval = 0,
                             _ closure: @escaping (isolated Owner, Output) async -> ()) -> AnyCancellable {
-        sinkThrottled(retained: retained) { [weak isolated] value in
+        sinkThrottled(retained: retained, duration: duration) { [weak isolated] value in
             if let isolated { await closure(isolated, value) }
         }
     }
@@ -194,11 +195,8 @@ public extension ObservableObject {
     }
     
     @discardableResult
-    func sinkThrottled(retained: AnyObject? = nil, _ closure: @escaping @isolated(any) () async -> ()) -> AnyCancellable {
-        let tasks = ThrottledTasks()
-        return sinkIsolated(retained: retained) {
-            await tasks.run { await closure() }
-        }
+    func sinkThrottled(retained: AnyObject? = nil, duration: TimeInterval = 0, _ closure: @escaping @isolated(any) () async -> ()) -> AnyCancellable {
+        objectWillChange.map { _ in }.sinkThrottled(retained: retained, duration: duration, closure)
     }
 }
 
