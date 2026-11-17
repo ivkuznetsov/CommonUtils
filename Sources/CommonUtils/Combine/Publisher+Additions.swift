@@ -101,9 +101,10 @@ public extension Publisher where Failure == Never {
     }
     
     @discardableResult
-    func sinkThrottled(retained: AnyObject? = nil, _ closure: @escaping @isolated(any) (Output) async -> ()) -> AnyCancellable {
+    func sinkThrottled(retained: AnyObject? = nil, duration: TimeInterval = 0, _ closure: @escaping @isolated(any) (Output) async -> ()) -> AnyCancellable {
         let tasks = ThrottledTasks()
-        return sinkIsolated(retained: retained) { value in
+        let publisher = duration > 0 ? throttle(for: .seconds(duration), scheduler: DispatchQueue.global(), latest: true).eraseToAnyPublisher() : eraseToAnyPublisher()
+        return publisher.sinkIsolated(retained: retained) { value in
             await tasks.run { await closure(value) }
         }
     }
